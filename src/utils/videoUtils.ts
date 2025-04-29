@@ -93,47 +93,93 @@ export const createFiveSecondClip = async (
         
         console.log(`Creating 5-second clip around ${centerTimePosition}s (from ${startTime}s to ${endTime}s)`);
         
-        // Create a new video element for display purposes
-        const displayVideo = document.createElement('video');
+        // Use MediaRecorder to create a clip
+        // First, create another video element to play the source video
+        const sourceVideo = document.createElement('video');
+        sourceVideo.src = URL.createObjectURL(videoBlob);
+        sourceVideo.muted = true;
         
-        // Store clip timing metadata with the blob
-        const clipMetadata = {
-          originalType: videoBlob.type,
-          startTime: startTime,
-          endTime: endTime,
-          actualDuration: actualDuration,
-          centerPoint: centerTimePosition,
-          timestamp: new Date().toISOString()
+        // Create a canvas to capture the video frames
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Create a MediaStream from the canvas
+        const stream = canvas.captureStream();
+        
+        // Set up a MediaRecorder to record the stream
+        const recorder = new MediaRecorder(stream, {
+          mimeType: 'video/webm;codecs=vp9'
+        });
+        
+        const chunks: Blob[] = [];
+        
+        recorder.ondataavailable = (e) => {
+          if (e.data.size > 0) {
+            chunks.push(e.data);
+          }
         };
         
-        // Convert the metadata to a string and then to a Blob
-        const metadataStr = JSON.stringify(clipMetadata);
+        recorder.onstop = () => {
+          // Create a new blob from all the chunks
+          const clipBlob = new Blob(chunks, { type: 'video/webm' });
+          
+          // Add clip metadata as properties
+          Object.defineProperty(clipBlob, 'clipMetadata', {
+            value: {
+              originalType: videoBlob.type,
+              startTime: startTime,
+              endTime: endTime,
+              duration: actualDuration,
+              centerPoint: centerTimePosition,
+              timestamp: new Date().toISOString()
+            },
+            writable: false,
+            enumerable: true
+          });
+          
+          // Clean up
+          URL.revokeObjectURL(sourceVideo.src);
+          
+          resolve(clipBlob);
+        };
         
-        // For better browser compatibility, we'll return the original video
-        // with additional properties to indicate it's a clip
-        const clipBlob = new Blob([videoBlob], { 
-          type: videoBlob.type 
-        });
+        // Listen for the video to be ready
+        sourceVideo.onloadedmetadata = () => {
+          // Set canvas dimensions to match video
+          canvas.width = sourceVideo.videoWidth;
+          canvas.height = sourceVideo.videoHeight;
+          
+          // Set video to start time
+          sourceVideo.currentTime = startTime;
+        };
         
-        // Add custom properties to the blob (these will be used when playing the clip)
-        Object.defineProperties(clipBlob, {
-          clipMetadata: {
-            value: clipMetadata,
-            writable: false
-          }
-        });
+        // When seeking is complete, start playback and recording
+        sourceVideo.onseeked = () => {
+          // Start recording
+          recorder.start();
+          
+          // Start playback
+          sourceVideo.play();
+          
+          // Draw video frames to canvas
+          const drawFrame = () => {
+            if (sourceVideo.currentTime <= endTime) {
+              ctx?.drawImage(sourceVideo, 0, 0, canvas.width, canvas.height);
+              requestAnimationFrame(drawFrame);
+            } else {
+              // Stop recording when we reach the end time
+              sourceVideo.pause();
+              recorder.stop();
+            }
+          };
+          
+          drawFrame();
+        };
         
-        // Create a simple metadata text to store with the video
-        const clipInfo = new TextEncoder().encode(metadataStr);
-        
-        // Store this information in a property that can be easily serialized
-        (clipBlob as any).clipInfo = clipInfo;
-        
-        // Store the metadata as a user-defined property
-        (clipBlob as any).clipStart = startTime;
-        (clipBlob as any).clipEnd = endTime;
-        
-        resolve(clipBlob);
+        sourceVideo.onerror = (e) => {
+          URL.revokeObjectURL(sourceVideo.src);
+          reject(new Error(`Error loading source video for clip: ${e}`));
+        };
       } catch (error) {
         console.error('Error creating 5-second clip:', error);
         reject(error);
@@ -149,11 +195,14 @@ export const createFiveSecondClip = async (
 
 // Utility function to check if a blob is a clip and get clip metadata
 export const getClipMetadata = (blob: Blob): { startTime: number, endTime: number } | null => {
-  if ((blob as any).clipStart !== undefined && (blob as any).clipEnd !== undefined) {
+  // Try to access the clipMetadata property that we defined
+  if ((blob as any).clipMetadata) {
+    const metadata = (blob as any).clipMetadata;
     return {
-      startTime: (blob as any).clipStart,
-      endTime: (blob as any).clipEnd
+      startTime: metadata.startTime,
+      endTime: metadata.endTime
     };
   }
+  
   return null;
 };

@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
@@ -15,6 +16,7 @@ interface VideoPlayerProps {
 
 const VideoPlayer = ({ videoSrc, onSnapshotCapture }: VideoPlayerProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const clipVideoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackRate, setPlaybackRate] = useState(1);
@@ -24,6 +26,7 @@ const VideoPlayer = ({ videoSrc, onSnapshotCapture }: VideoPlayerProps) => {
   const [capturedClips, setCapturedClips] = useState<Blob[]>([]);
   const [currentClipIndex, setCurrentClipIndex] = useState<number | null>(null);
   const [videoUrl, setVideoUrl] = useState<string>('');
+  const [currentClipUrl, setCurrentClipUrl] = useState<string>('');
   
   const { selectedPlayers } = usePlayers();
   
@@ -42,6 +45,29 @@ const VideoPlayer = ({ videoSrc, onSnapshotCapture }: VideoPlayerProps) => {
       setVideoUrl(videoSrc);
     }
   }, [videoSrc]);
+  
+  // Clean up clip URL when component unmounts or when the current clip changes
+  useEffect(() => {
+    return () => {
+      if (currentClipUrl) {
+        URL.revokeObjectURL(currentClipUrl);
+      }
+    };
+  }, [currentClipUrl]);
+  
+  // Handle clip selection and URL creation
+  useEffect(() => {
+    if (currentClipIndex !== null && capturedClips[currentClipIndex]) {
+      // Revoke previous URL if it exists
+      if (currentClipUrl) {
+        URL.revokeObjectURL(currentClipUrl);
+      }
+      
+      // Create URL for the current clip
+      const url = URL.createObjectURL(capturedClips[currentClipIndex]);
+      setCurrentClipUrl(url);
+    }
+  }, [currentClipIndex, capturedClips]);
   
   useEffect(() => {
     const video = videoRef.current;
@@ -178,6 +204,7 @@ const VideoPlayer = ({ videoSrc, onSnapshotCapture }: VideoPlayerProps) => {
     
     try {
       setIsCreatingClip(true);
+      toast.info("Creating clip...");
       
       // Get current time position
       const centerTime = videoRef.current.currentTime;
@@ -185,22 +212,26 @@ const VideoPlayer = ({ videoSrc, onSnapshotCapture }: VideoPlayerProps) => {
       
       // Create a 5-second clip using our utility
       const clipBlob = await createFiveSecondClip(videoSrc, centerTime);
-      console.log('Clip created with metadata:', getClipMetadata(clipBlob));
+      console.log('Clip created:', clipBlob);
       
-      // Add the clip to our collection and update state safely
+      // Add the clip to our collection
       setCapturedClips(prevClips => {
         const newClips = [...prevClips, clipBlob];
-        console.log(`Added clip #${newClips.length}. Total clips: ${newClips.length}`);
+        console.log(`Added clip. Total clips: ${newClips.length}`);
         return newClips;
       });
       
-      // Set the current clip index after state has been updated
-      setCurrentClipIndex(capturedClips.length);
+      // Set the current clip index to the newly added clip
+      setCurrentClipIndex(prevIndex => {
+        const newIndex = capturedClips.length; // Point to the index where the new clip will be
+        console.log(`Setting current clip index to: ${newIndex}`);
+        return newIndex;
+      });
       
-      toast.success('5-second clip created! You can create more clips or upload this one.');
+      toast.success('5-second clip created!');
     } catch (error) {
       console.error('Error creating clip:', error);
-      toast.error('Failed to create clip');
+      toast.error('Failed to create clip: ' + (error instanceof Error ? error.message : 'Unknown error'));
     } finally {
       setIsCreatingClip(false);
     }
@@ -245,6 +276,12 @@ const VideoPlayer = ({ videoSrc, onSnapshotCapture }: VideoPlayerProps) => {
       } else {
         setCurrentClipIndex(null);
       }
+      
+      // Clean up the clip URL
+      if (currentClipUrl) {
+        URL.revokeObjectURL(currentClipUrl);
+        setCurrentClipUrl('');
+      }
     } catch (error) {
       console.error('Error uploading clip:', error);
       toast.error('Failed to upload clip');
@@ -282,6 +319,12 @@ const VideoPlayer = ({ videoSrc, onSnapshotCapture }: VideoPlayerProps) => {
   const discardCurrentClip = () => {
     if (currentClipIndex === null || capturedClips.length === 0) return;
     
+    // Clean up URL for the clip being discarded
+    if (currentClipUrl) {
+      URL.revokeObjectURL(currentClipUrl);
+      setCurrentClipUrl('');
+    }
+    
     // Remove the current clip
     setCapturedClips(prev => prev.filter((_, i) => i !== currentClipIndex));
     
@@ -293,19 +336,6 @@ const VideoPlayer = ({ videoSrc, onSnapshotCapture }: VideoPlayerProps) => {
     }
     
     toast.info('Clip discarded');
-  };
-
-  // Function to create clip URL with proper start time
-  const createClipUrl = (blob: Blob): string => {
-    const url = URL.createObjectURL(blob);
-    const metadata = getClipMetadata(blob);
-    
-    // If this is a clip with metadata, we'll append start time to the URL
-    if (metadata) {
-      return `${url}#t=${metadata.startTime},${metadata.endTime}`;
-    }
-    
-    return url;
   };
 
   return (
@@ -464,10 +494,11 @@ const VideoPlayer = ({ videoSrc, onSnapshotCapture }: VideoPlayerProps) => {
             </div>
           </div>
           
-          {currentClipIndex !== null && capturedClips[currentClipIndex] && (
+          {currentClipIndex !== null && currentClipUrl && (
             <video 
+              ref={clipVideoRef}
               className="w-full h-auto rounded-lg border border-border" 
-              src={createClipUrl(capturedClips[currentClipIndex])} 
+              src={currentClipUrl} 
               controls
             />
           )}
