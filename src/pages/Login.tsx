@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -198,7 +199,7 @@ const Login = () => {
           <Button 
             onClick={handleGoogleLogin}
             className="w-full" 
-            variant="outline"
+            variant="default"
             disabled={isLoading}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" className="mr-2">
@@ -222,7 +223,7 @@ const Login = () => {
             Sign in with Google
           </Button>
           
-          <Alert variant="outline" className="bg-muted/50">
+          <Alert variant="default" className="bg-muted/50">
             <InfoIcon className="h-4 w-4" />
             <AlertDescription className="text-xs">
               Signing in with Google will request permission to access your Drive folders for easy folder selection when adding players.
