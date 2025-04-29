@@ -9,6 +9,7 @@ import AddPlayerForm from '@/components/AddPlayerForm';
 import ManagePlayersModal from '@/components/ManagePlayersModal';
 import Camera from '@/components/Camera';
 import { Separator } from '@/components/ui/separator';
+import { Play } from 'lucide-react';
 
 const Index = () => {
   const { isAuthenticated, user, logout } = useAuth();
@@ -29,9 +30,19 @@ const Index = () => {
       <header className="border-b bg-card">
         <div className="container max-w-md px-4 py-4 flex justify-between items-center">
           <h1 className="text-xl font-bold text-team-primary">TeamClipSync</h1>
-          <Button variant="ghost" size="sm" onClick={logout}>
-            Logout
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => navigate('/video')}
+              className="flex items-center gap-1"
+            >
+              <Play className="h-4 w-4" /> Video
+            </Button>
+            <Button variant="ghost" size="sm" onClick={logout}>
+              Logout
+            </Button>
+          </div>
         </div>
       </header>
 
