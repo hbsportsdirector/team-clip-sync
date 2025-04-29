@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import VideoPlayer from '@/components/VideoPlayer';
 import VideoLibrary from '@/components/VideoLibrary';
 import VideoClipCapture from '@/components/VideoClipCapture';
+import PlayerList from '@/components/PlayerList';
 import { useAuth } from '@/contexts/AuthContext';
 
 const VideoPlayback = () => {
@@ -65,6 +66,12 @@ const VideoPlayback = () => {
                     {selectedVideo.name}
                   </div>
                 </div>
+                
+                <div className="mb-4 space-y-4">
+                  <h3 className="text-lg font-medium">Select Players for Clip Upload</h3>
+                  <PlayerList />
+                </div>
+                
                 <Button 
                   variant="outline" 
                   onClick={() => setSelectedVideo(null)} 
@@ -89,7 +96,7 @@ const VideoPlayback = () => {
           <InfoIcon className="h-4 w-4 text-muted-foreground" />
           <AlertDescription className="text-xs text-muted-foreground">
             Use slow-motion controls to analyze technique in detail. 
-            Capture snapshots at key moments to share with your team.
+            Capture snapshots or 5-second clips at key moments to share with your team.
           </AlertDescription>
         </Alert>
       </main>

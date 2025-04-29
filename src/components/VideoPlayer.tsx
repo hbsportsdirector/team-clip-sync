@@ -2,9 +2,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
-import { Play, Pause, Camera, FastForward, Rewind } from 'lucide-react';
+import { Play, Pause, Camera, FastForward, Rewind, Scissors } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { createFiveSecondClip } from '@/utils/videoUtils';
+import { usePlayers } from '@/contexts/PlayerContext';
+import { simulateUploadToMultipleFolders } from '@/services/driveService';
 
 interface VideoPlayerProps {
   videoSrc: string | Blob;
@@ -18,6 +21,10 @@ const VideoPlayer = ({ videoSrc, onSnapshotCapture }: VideoPlayerProps) => {
   const [playbackRate, setPlaybackRate] = useState(1);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [isCreatingClip, setIsCreatingClip] = useState(false);
+  const [capturedClip, setCapturedClip] = useState<Blob | null>(null);
+  
+  const { selectedPlayers } = usePlayers();
   
   useEffect(() => {
     const video = videoRef.current;
@@ -86,6 +93,73 @@ const VideoPlayer = ({ videoSrc, onSnapshotCapture }: VideoPlayerProps) => {
         toast.error('Failed to capture snapshot');
       }
     }, 'image/jpeg', 0.95);
+  };
+
+  const extractClip = async () => {
+    if (!videoRef.current || !(videoSrc instanceof Blob)) {
+      toast.error('Unable to extract clip from this video source');
+      return;
+    }
+    
+    setIsCreatingClip(true);
+    
+    try {
+      // Get current time position
+      const centerTime = videoRef.current.currentTime;
+      
+      // Create a 5-second clip (2.5s before and 2.5s after)
+      const clipBlob = await createFiveSecondClip(videoSrc, centerTime);
+      
+      // Store the clip
+      setCapturedClip(clipBlob);
+      
+      toast.success('5-second clip created successfully!');
+    } catch (error) {
+      console.error('Error creating clip:', error);
+      toast.error('Failed to create clip');
+    } finally {
+      setIsCreatingClip(false);
+    }
+  };
+
+  const handleUploadClip = async () => {
+    if (!capturedClip) {
+      toast.error('No clip to upload');
+      return;
+    }
+    
+    if (selectedPlayers.length === 0) {
+      toast.error('Please select at least one player');
+      return;
+    }
+    
+    try {
+      setIsCreatingClip(true);
+      
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const fileName = `clip_${timestamp}.webm`;
+      
+      // Upload to selected players' folders
+      await simulateUploadToMultipleFolders(
+        capturedClip,
+        selectedPlayers.map(player => ({
+          id: player.id,
+          name: player.name,
+          driveFolder: player.driveFolder
+        })),
+        fileName
+      );
+      
+      toast.success('Clip uploaded successfully!');
+      
+      // Reset for new clip
+      setCapturedClip(null);
+    } catch (error) {
+      console.error('Error uploading clip:', error);
+      toast.error('Failed to upload clip');
+    } finally {
+      setIsCreatingClip(false);
+    }
   };
 
   const seekTo = (time: number) => {
@@ -178,15 +252,27 @@ const VideoPlayer = ({ videoSrc, onSnapshotCapture }: VideoPlayerProps) => {
         </div>
         
         <div className="flex items-center space-x-2">
+          {onSnapshotCapture && (
+            <Button 
+              size="icon"
+              variant="outline"
+              onClick={captureSnapshot}
+              className="bg-slate-100 hover:bg-slate-200"
+              title="Take snapshot"
+            >
+              <Camera className="h-4 w-4" />
+            </Button>
+          )}
+          
           <Button 
             size="icon"
             variant="outline"
-            onClick={captureSnapshot}
+            onClick={extractClip}
+            disabled={isCreatingClip || !(videoSrc instanceof Blob)}
             className="bg-slate-100 hover:bg-slate-200"
-            title="Take snapshot"
-            disabled={!onSnapshotCapture}
+            title="Extract 5-second clip"
           >
-            <Camera className="h-4 w-4" />
+            <Scissors className="h-4 w-4" />
           </Button>
           
           <Button 
@@ -198,6 +284,40 @@ const VideoPlayer = ({ videoSrc, onSnapshotCapture }: VideoPlayerProps) => {
           </Button>
         </div>
       </div>
+      
+      {capturedClip && (
+        <div className="mt-4 space-y-2">
+          <div className="flex justify-between items-center">
+            <span className="text-sm font-medium">Clip created</span>
+            <Button 
+              size="sm"
+              variant="outline" 
+              onClick={() => setCapturedClip(null)}
+            >
+              Discard
+            </Button>
+          </div>
+          
+          <video 
+            className="w-full h-auto rounded-lg border border-border" 
+            src={URL.createObjectURL(capturedClip)} 
+            controls
+          />
+          
+          <Button
+            onClick={handleUploadClip}
+            disabled={isCreatingClip || selectedPlayers.length === 0}
+            className="w-full"
+          >
+            {isCreatingClip 
+              ? 'Uploading...' 
+              : selectedPlayers.length === 0
+                ? 'Select players to upload clip'
+                : `Upload clip to ${selectedPlayers.length} player${selectedPlayers.length !== 1 ? 's' : ''}`
+            }
+          </Button>
+        </div>
+      )}
     </div>
   );
 };
