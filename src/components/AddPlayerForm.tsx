@@ -15,13 +15,17 @@ import {
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
+import GoogleDriveFolderPicker from './GoogleDriveFolderPicker';
+import { useAuth } from '@/contexts/AuthContext';
 
 const AddPlayerForm = () => {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
   const [driveFolder, setDriveFolder] = useState('');
+  const [driveFolderName, setDriveFolderName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { addPlayer } = usePlayers();
+  const { getGoogleAccessToken } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,7 +36,6 @@ const AddPlayerForm = () => {
     }
 
     // In a real app, we would validate the folder ID
-    // For now, we'll use any string as a mock folder ID
     const folderValue = driveFolder.trim() || `mock-folder-${Date.now()}`;
     
     setIsSubmitting(true);
@@ -40,12 +43,25 @@ const AddPlayerForm = () => {
       await addPlayer(name.trim(), folderValue);
       setName('');
       setDriveFolder('');
+      setDriveFolderName('');
       setOpen(false);
+      
+      // Show success toast with a different message if a real folder was selected
+      if (driveFolder.trim()) {
+        toast.success(`Player ${name} added with Google Drive folder`);
+      } else {
+        toast.success(`Player ${name} added`);
+      }
     } catch (error) {
       console.error('Error adding player:', error);
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleFolderSelected = (folderId: string, folderName: string) => {
+    setDriveFolder(folderId);
+    setDriveFolderName(folderName);
   };
 
   return (
@@ -60,7 +76,7 @@ const AddPlayerForm = () => {
         <DialogHeader>
           <DialogTitle>Add New Player</DialogTitle>
           <DialogDescription>
-            Enter the player's name and Google Drive folder ID
+            Enter the player's name and select a Google Drive folder
           </DialogDescription>
         </DialogHeader>
         
@@ -79,17 +95,24 @@ const AddPlayerForm = () => {
             </div>
             
             <div className="grid gap-2">
-              <Label htmlFor="folder">Google Drive Folder ID (optional)</Label>
-              <Input
-                id="folder"
-                placeholder="Google Drive folder ID"
-                value={driveFolder}
-                onChange={(e) => setDriveFolder(e.target.value)}
-                disabled={isSubmitting}
+              <Label htmlFor="folder">Google Drive Folder</Label>
+              
+              <GoogleDriveFolderPicker 
+                onSelect={handleFolderSelected}
+                selectedFolderId={driveFolder}
               />
-              <p className="text-xs text-muted-foreground">
-                You can find the folder ID in the URL of your Google Drive folder
-              </p>
+              
+              {driveFolderName && (
+                <div className="text-sm text-muted-foreground mt-1">
+                  Selected folder: {driveFolderName}
+                </div>
+              )}
+              
+              {!driveFolder && (
+                <p className="text-xs text-muted-foreground">
+                  If no folder is selected, a mock folder ID will be used
+                </p>
+              )}
             </div>
           </div>
           

@@ -34,16 +34,36 @@ export const uploadToGoogleDrive = async (
     throw new Error('No access token available');
   }
 
-  // For now, we'll simulate the upload since we don't have full Google Drive integration yet
-  console.log(`Uploading video to ${folderIds.length} folders:`, folderIds);
-  
-  // Simulate upload delay
-  await new Promise(resolve => setTimeout(resolve, 2000));
-  
-  // Create mock file IDs for each folder
-  const fileIds = folderIds.map(folderId => `mock-file-id-${Date.now()}-${folderId}`);
-  
-  return fileIds;
+  try {
+    const fileIds: string[] = [];
+    
+    // Create a multipart request to upload the file
+    for (const folderId of folderIds) {
+      const metadata = {
+        name: fileName,
+        mimeType: videoBlob.type,
+        parents: [folderId]
+      };
+      
+      const form = new FormData();
+      form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+      form.append('file', videoBlob);
+      
+      // If this is a real implementation, we would use the Google Drive API
+      // For now we'll simulate success since we don't have full API integration
+      console.log(`Uploading video to folder ${folderId} with filename: ${fileName}`);
+      
+      // Simulate upload delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      fileIds.push(`mock-file-id-${Date.now()}-${folderId}`);
+    }
+    
+    return fileIds;
+  } catch (error) {
+    console.error('Error uploading to Google Drive:', error);
+    throw error;
+  }
 };
 
 export const getGoogleDriveFolderLink = (folderId: string): string => {

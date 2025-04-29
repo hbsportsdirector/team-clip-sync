@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,6 +6,8 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { InfoIcon } from 'lucide-react';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -193,7 +194,7 @@ const Login = () => {
           </div>
         </div>
         
-        <CardFooter className="flex flex-col">
+        <CardFooter className="flex flex-col space-y-4">
           <Button 
             onClick={handleGoogleLogin}
             className="w-full" 
@@ -220,6 +221,13 @@ const Login = () => {
             </svg>
             Sign in with Google
           </Button>
+          
+          <Alert variant="outline" className="bg-muted/50">
+            <InfoIcon className="h-4 w-4" />
+            <AlertDescription className="text-xs">
+              Signing in with Google will request permission to access your Drive folders for easy folder selection when adding players.
+            </AlertDescription>
+          </Alert>
         </CardFooter>
       </Card>
     </div>

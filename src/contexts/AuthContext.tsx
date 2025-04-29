@@ -17,6 +17,7 @@ interface AuthContextType extends AuthState {
   signUp: (email: string, password: string, name: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
+  getGoogleAccessToken: () => Promise<string | null>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -97,7 +98,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          scopes: 'https://www.googleapis.com/auth/drive.file',
+          scopes: 'https://www.googleapis.com/auth/drive.metadata.readonly',
+          redirectTo: `${window.location.origin}/login`,
         },
       });
       
@@ -106,6 +108,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       console.error('Google login error:', error);
       toast.error(error.message || 'Failed to log in with Google');
       throw error;
+    }
+  };
+
+  const getGoogleAccessToken = async (): Promise<string | null> => {
+    try {
+      if (!authState.session) {
+        toast.error('You must be logged in to access Google Drive');
+        return null;
+      }
+
+      // Check if the user is authenticated with Google
+      if (authState.session.provider_token) {
+        return authState.session.provider_token;
+      } else {
+        console.log('No Google provider token found, user might not be logged in with Google');
+        return null;
+      }
+    } catch (error) {
+      console.error('Error getting Google access token:', error);
+      return null;
     }
   };
 
@@ -136,6 +158,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         signUp,
         signInWithGoogle,
         logout,
+        getGoogleAccessToken,
       }}
     >
       {children}
