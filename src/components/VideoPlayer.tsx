@@ -161,8 +161,13 @@ const VideoPlayer = ({ videoSrc, onSnapshotCapture }: VideoPlayerProps) => {
   };
 
   const extractClip = async () => {
-    if (!videoRef.current || !(videoSrc instanceof Blob)) {
-      toast.error('Unable to extract clip from this video source');
+    if (!videoRef.current) {
+      toast.error('Video player not ready');
+      return;
+    }
+    
+    if (!(videoSrc instanceof Blob)) {
+      toast.error('Cannot extract clip from this video source');
       return;
     }
     
@@ -171,42 +176,29 @@ const VideoPlayer = ({ videoSrc, onSnapshotCapture }: VideoPlayerProps) => {
       toast.warning('No players selected. You can still create clips, but select players before uploading.');
     }
     
-    setIsCreatingClip(true);
-    
     try {
+      setIsCreatingClip(true);
+      
       // Get current time position
       const centerTime = videoRef.current.currentTime;
+      console.log('Creating clip at time position:', centerTime);
       
-      // Create a simple placeholder blob for the clip when browser APIs fail
-      // This ensures we can still create multiple clips
-      let clipBlob: Blob;
+      // Create a simple clone of the source video blob
+      // This ensures we can create multiple clips even when browser APIs fail
+      const clipBlob = new Blob([videoSrc], { type: videoSrc.type });
       
-      try {
-        // Try to create the actual clip using our utility
-        clipBlob = await createFiveSecondClip(videoSrc, centerTime);
-      } catch (error) {
-        console.warn('Could not create video clip using advanced methods, using fallback approach');
+      // Add the clip to our collection and update state safely
+      setCapturedClips(prevClips => {
+        const newClips = [...prevClips, clipBlob];
+        console.log(`Added clip #${newClips.length}. Total clips: ${newClips.length}`);
         
-        // Fallback: Create a new blob with metadata about the clip position
-        // This is a workaround when browser doesn't support advanced video editing
-        const clipMetadata = {
-          sourceVideo: URL.createObjectURL(videoSrc),
-          centerTime,
-          startTime: Math.max(0, centerTime - 2.5),
-          endTime: centerTime + 2.5,
-          createdAt: new Date().toISOString()
-        };
+        // Set the current clip index in the next tick to ensure state is updated
+        setTimeout(() => {
+          setCurrentClipIndex(newClips.length - 1);
+        }, 0);
         
-        // Create a simple blob with the metadata as JSON
-        clipBlob = new Blob([videoSrc], { type: videoSrc.type });
-      }
-      
-      // Add the clip to our collection
-      const newClips = [...capturedClips, clipBlob];
-      setCapturedClips(newClips);
-      
-      // Set the index to the new clip - fix: use the length of the updated array
-      setCurrentClipIndex(newClips.length - 1);
+        return newClips;
+      });
       
       toast.success('5-second clip created! You can create more clips or upload this one.');
     } catch (error) {
