@@ -6,6 +6,7 @@ import { usePlayers } from '@/contexts/PlayerContext';
 import { simulateUploadToMultipleFolders } from '@/services/driveService';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/contexts/AuthContext';
 
 const Camera = () => {
   const [isRecording, setIsRecording] = useState(false);
@@ -17,6 +18,7 @@ const Camera = () => {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const timerRef = useRef<number | null>(null);
   const { selectedPlayers } = usePlayers();
+  const { isAuthenticated } = useAuth();
 
   // Initialize camera
   useEffect(() => {
@@ -38,7 +40,9 @@ const Camera = () => {
       }
     };
 
-    initializeCamera();
+    if (isAuthenticated) {
+      initializeCamera();
+    }
 
     return () => {
       if (stream) {
@@ -49,7 +53,7 @@ const Camera = () => {
         clearInterval(timerRef.current);
       }
     };
-  }, []);
+  }, [isAuthenticated]);
 
   const startRecording = () => {
     if (!stream) return;
@@ -107,16 +111,18 @@ const Camera = () => {
         try {
           setUploading(true);
           
-          // Get the folder IDs from selected players
-          const folderIds = selectedPlayers.map(player => player.driveFolder);
           const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
           const fileName = `recording_${timestamp}.webm`;
           
-          // Simulate upload to Google Drive
+          // Upload to Supabase and Google Drive
           await simulateUploadToMultipleFolders(
-            videoBlob, 
-            folderIds,
-            selectedPlayers
+            videoBlob,
+            selectedPlayers.map(player => ({
+              id: player.id,
+              name: player.name,
+              driveFolder: player.driveFolder
+            })),
+            fileName
           );
           
           // Create a download link for testing
@@ -165,7 +171,7 @@ const Camera = () => {
           <Button 
             onClick={startRecording} 
             className="bg-team-primary hover:bg-team-primary/90 text-white rounded-full w-16 h-16 flex items-center justify-center"
-            disabled={uploading}
+            disabled={uploading || selectedPlayers.length === 0}
           >
             <Play size={32} />
           </Button>

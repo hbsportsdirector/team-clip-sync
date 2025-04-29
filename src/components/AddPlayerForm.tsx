@@ -14,14 +14,16 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
+import { Loader2 } from 'lucide-react';
 
 const AddPlayerForm = () => {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
   const [driveFolder, setDriveFolder] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { addPlayer } = usePlayers();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!name.trim()) {
@@ -33,10 +35,17 @@ const AddPlayerForm = () => {
     // For now, we'll use any string as a mock folder ID
     const folderValue = driveFolder.trim() || `mock-folder-${Date.now()}`;
     
-    addPlayer(name.trim(), folderValue);
-    setName('');
-    setDriveFolder('');
-    setOpen(false);
+    setIsSubmitting(true);
+    try {
+      await addPlayer(name.trim(), folderValue);
+      setName('');
+      setDriveFolder('');
+      setOpen(false);
+    } catch (error) {
+      console.error('Error adding player:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -64,6 +73,7 @@ const AddPlayerForm = () => {
                 placeholder="Player's name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
+                disabled={isSubmitting}
                 required
               />
             </div>
@@ -75,6 +85,7 @@ const AddPlayerForm = () => {
                 placeholder="Google Drive folder ID"
                 value={driveFolder}
                 onChange={(e) => setDriveFolder(e.target.value)}
+                disabled={isSubmitting}
               />
               <p className="text-xs text-muted-foreground">
                 You can find the folder ID in the URL of your Google Drive folder
@@ -83,11 +94,20 @@ const AddPlayerForm = () => {
           </div>
           
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+            <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={isSubmitting}>
               Cancel
             </Button>
-            <Button type="submit" className="bg-team-primary hover:bg-team-primary/90">
-              Add Player
+            <Button 
+              type="submit" 
+              className="bg-team-primary hover:bg-team-primary/90"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Adding...
+                </>
+              ) : 'Add Player'}
             </Button>
           </DialogFooter>
         </form>

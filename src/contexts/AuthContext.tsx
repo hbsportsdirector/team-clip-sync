@@ -1,20 +1,22 @@
 
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
+import { Session, User } from '@supabase/supabase-js';
+import { useNavigate } from 'react-router-dom';
 
 interface AuthState {
   isAuthenticated: boolean;
-  user: {
-    name: string | null;
-    email: string | null;
-    picture: string | null;
-  } | null;
-  accessToken: string | null;
+  user: User | null;
+  session: Session | null;
+  loading: boolean;
 }
 
 interface AuthContextType extends AuthState {
-  login: () => Promise<void>;
-  logout: () => void;
+  login: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string, name: string) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -23,68 +25,116 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [authState, setAuthState] = useState<AuthState>({
     isAuthenticated: false,
     user: null,
-    accessToken: null,
+    session: null,
+    loading: true,
   });
+  
+  useEffect(() => {
+    // Set up auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        setAuthState({
+          isAuthenticated: !!session,
+          user: session?.user ?? null,
+          session: session,
+          loading: false,
+        });
+      }
+    );
 
-  // Mock authentication flow for now
-  const login = async () => {
-    try {
-      // In a real implementation, we would use the Google OAuth flow
-      // For now, we'll simulate a successful login
+    // Check for existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
       setAuthState({
-        isAuthenticated: true,
-        user: {
-          name: 'Demo User',
-          email: 'user@example.com',
-          picture: null,
-        },
-        accessToken: 'mock-token',
+        isAuthenticated: !!session,
+        user: session?.user ?? null,
+        session: session,
+        loading: false,
+      });
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const login = async (email: string, password: string) => {
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
       });
       
+      if (error) throw error;
       toast.success('Successfully logged in');
-      localStorage.setItem('isAuthenticated', 'true');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Login error:', error);
-      toast.error('Failed to log in');
+      toast.error(error.message || 'Failed to log in');
+      throw error;
     }
   };
 
-  const logout = () => {
-    setAuthState({
-      isAuthenticated: false,
-      user: null,
-      accessToken: null,
-    });
-    localStorage.removeItem('isAuthenticated');
-    toast.info('Logged out');
+  const signUp = async (email: string, password: string, name: string) => {
+    try {
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            name,
+          },
+        },
+      });
+      
+      if (error) throw error;
+      toast.success('Registration successful. Please check your email for verification.');
+    } catch (error: any) {
+      console.error('Sign up error:', error);
+      toast.error(error.message || 'Failed to sign up');
+      throw error;
+    }
+  };
+  
+  const signInWithGoogle = async () => {
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          scopes: 'https://www.googleapis.com/auth/drive.file',
+        },
+      });
+      
+      if (error) throw error;
+    } catch (error: any) {
+      console.error('Google login error:', error);
+      toast.error(error.message || 'Failed to log in with Google');
+      throw error;
+    }
   };
 
-  // Check for existing session on mount
-  useEffect(() => {
-    const checkAuth = async () => {
-      const isAuth = localStorage.getItem('isAuthenticated') === 'true';
+  const logout = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
       
-      if (isAuth) {
-        setAuthState({
-          isAuthenticated: true,
-          user: {
-            name: 'Demo User',
-            email: 'user@example.com',
-            picture: null,
-          },
-          accessToken: 'mock-token',
-        });
-      }
-    };
-    
-    checkAuth();
-  }, []);
+      setAuthState({
+        isAuthenticated: false,
+        user: null,
+        session: null,
+        loading: false,
+      });
+      
+      toast.info('Logged out');
+    } catch (error: any) {
+      console.error('Logout error:', error);
+      toast.error(error.message || 'Failed to log out');
+    }
+  };
 
   return (
     <AuthContext.Provider
       value={{
         ...authState,
         login,
+        signUp,
+        signInWithGoogle,
         logout,
       }}
     >

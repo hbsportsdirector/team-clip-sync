@@ -4,11 +4,22 @@ import { usePlayers, Player } from '@/contexts/PlayerContext';
 import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
-import { Users } from 'lucide-react';
+import { Users, Loader2 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 
 const PlayerList = () => {
-  const { players, togglePlayerSelection, selectedPlayers, clearSelectedPlayers } = usePlayers();
+  const { players, togglePlayerSelection, selectedPlayers, clearSelectedPlayers, loadingPlayers } = usePlayers();
+
+  if (loadingPlayers) {
+    return (
+      <div className="flex flex-col items-center justify-center py-8">
+        <Loader2 className="h-8 w-8 text-team-primary animate-spin" />
+        <p className="mt-2 text-center text-muted-foreground">
+          Loading players...
+        </p>
+      </div>
+    );
+  }
 
   if (players.length === 0) {
     return (
