@@ -34,6 +34,7 @@ const VideoPlayback = () => {
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
+    URL.revokeObjectURL(url); // Clean up the URL object
     
     toast.success('Snapshot saved to your device');
   };
@@ -77,7 +78,13 @@ const VideoPlayback = () => {
                 
                 <Button 
                   variant="outline" 
-                  onClick={() => setSelectedVideo(null)} 
+                  onClick={() => {
+                    setSelectedVideo(null);
+                    // Clean up any URLs that might be in memory
+                    if (selectedVideo?.blob instanceof Blob) {
+                      URL.revokeObjectURL(URL.createObjectURL(selectedVideo.blob));
+                    }
+                  }} 
                   className="w-full mt-2 rounded-lg"
                 >
                   Back to Library

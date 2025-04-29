@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
@@ -24,29 +23,77 @@ const VideoPlayer = ({ videoSrc, onSnapshotCapture }: VideoPlayerProps) => {
   const [isCreatingClip, setIsCreatingClip] = useState(false);
   const [capturedClips, setCapturedClips] = useState<Blob[]>([]);
   const [currentClipIndex, setCurrentClipIndex] = useState<number | null>(null);
+  const [videoUrl, setVideoUrl] = useState<string>('');
   
   const { selectedPlayers } = usePlayers();
+  
+  // Create URL for the video source if it's a Blob
+  useEffect(() => {
+    if (videoSrc instanceof Blob) {
+      // Create a URL for the Blob
+      const url = URL.createObjectURL(videoSrc);
+      setVideoUrl(url);
+      
+      // Clean up the URL when component unmounts
+      return () => {
+        URL.revokeObjectURL(url);
+      };
+    } else if (typeof videoSrc === 'string') {
+      setVideoUrl(videoSrc);
+    }
+  }, [videoSrc]);
   
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
     
+    // Log video element properties for debugging
+    console.log('Video element:', {
+      src: video.src,
+      currentSrc: video.currentSrc,
+      readyState: video.readyState,
+      error: video.error
+    });
+    
     const updateTime = () => setCurrentTime(video.currentTime);
-    const updateDuration = () => setDuration(video.duration);
+    const updateDuration = () => {
+      console.log('Duration loaded:', video.duration);
+      setDuration(video.duration);
+    };
     const handlePlayingState = () => setIsPlaying(!video.paused);
     
+    // Log when metadata is loaded
+    const handleMetadata = () => {
+      console.log('Metadata loaded:', {
+        duration: video.duration,
+        videoWidth: video.videoWidth,
+        videoHeight: video.videoHeight
+      });
+      setDuration(video.duration);
+    };
+    
+    // Log errors
+    const handleError = () => {
+      console.error('Video error:', video.error);
+      toast.error(`Error playing video: ${video.error?.message || 'Unknown error'}`);
+    };
+    
     video.addEventListener('timeupdate', updateTime);
-    video.addEventListener('loadedmetadata', updateDuration);
+    video.addEventListener('loadedmetadata', handleMetadata);
+    video.addEventListener('durationchange', updateDuration);
     video.addEventListener('play', handlePlayingState);
     video.addEventListener('pause', handlePlayingState);
+    video.addEventListener('error', handleError);
     
     return () => {
       video.removeEventListener('timeupdate', updateTime);
-      video.removeEventListener('loadedmetadata', updateDuration);
+      video.removeEventListener('loadedmetadata', handleMetadata);
+      video.removeEventListener('durationchange', updateDuration);
       video.removeEventListener('play', handlePlayingState);
       video.removeEventListener('pause', handlePlayingState);
+      video.removeEventListener('error', handleError);
     };
-  }, []);
+  }, [videoUrl]);
 
   useEffect(() => {
     if (videoRef.current) {
@@ -56,12 +103,29 @@ const VideoPlayer = ({ videoSrc, onSnapshotCapture }: VideoPlayerProps) => {
 
   const togglePlayPause = () => {
     if (!videoRef.current) return;
-    if (isPlaying) {
-      videoRef.current.pause();
-    } else {
-      videoRef.current.play();
+    
+    try {
+      if (isPlaying) {
+        videoRef.current.pause();
+      } else {
+        const playPromise = videoRef.current.play();
+        
+        // Handle play promise to catch any autoplay restrictions
+        if (playPromise !== undefined) {
+          playPromise
+            .then(() => {
+              console.log('Video playback started successfully');
+            })
+            .catch(error => {
+              console.error('Error playing video:', error);
+              toast.error('Could not play video. Try clicking play again.');
+            });
+        }
+      }
+    } catch (error) {
+      console.error('Error toggling play/pause:', error);
+      toast.error('Error controlling playback');
     }
-    setIsPlaying(!isPlaying);
   };
 
   const changeSpeed = (newSpeed: number) => {
@@ -223,13 +287,16 @@ const VideoPlayer = ({ videoSrc, onSnapshotCapture }: VideoPlayerProps) => {
   return (
     <div className="flex flex-col w-full">
       <div className="relative w-full aspect-video bg-black rounded-lg overflow-hidden mb-2">
-        <video 
-          ref={videoRef} 
-          className="w-full h-full object-contain" 
-          src={typeof videoSrc === 'string' ? videoSrc : URL.createObjectURL(videoSrc)}
-          playsInline 
-          onClick={togglePlayPause}
-        />
+        {videoUrl && (
+          <video 
+            ref={videoRef} 
+            className="w-full h-full object-contain" 
+            src={videoUrl}
+            playsInline 
+            onClick={togglePlayPause}
+            onCanPlay={() => console.log('Video can play now')}
+          />
+        )}
         
         <canvas ref={canvasRef} className="hidden" />
       </div>

@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { toast } from 'sonner';
@@ -26,8 +26,13 @@ const VideoLibrary = ({ onSelectVideo }: VideoLibraryProps) => {
         if (file) {
           setIsLoading(true);
           try {
-            // Pass the video file to the parent component
-            onSelectVideo({ blob: file, name: file.name });
+            // Pass the video file directly to the parent component
+            onSelectVideo({ 
+              blob: file, 
+              name: file.name 
+            });
+            
+            console.log('File selected:', file.name, file.type, file.size);
           } catch (error) {
             console.error('Error processing video:', error);
             toast.error('Failed to process the video');
