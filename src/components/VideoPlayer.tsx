@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
@@ -222,7 +221,7 @@ const VideoPlayer = ({ videoSrc, onSnapshotCapture }: VideoPlayerProps) => {
       });
       
       // Set the current clip index to the newly added clip
-      setCurrentClipIndex(prevIndex => {
+      setCurrentClipIndex(prevClips => {
         const newIndex = capturedClips.length; // Point to the index where the new clip will be
         console.log(`Setting current clip index to: ${newIndex}`);
         return newIndex;
@@ -267,13 +266,20 @@ const VideoPlayer = ({ videoSrc, onSnapshotCapture }: VideoPlayerProps) => {
       
       toast.success('Clip uploaded successfully!');
       
-      // Remove the uploaded clip from our collection
-      setCapturedClips(prev => prev.filter((_, i) => i !== currentClipIndex));
+      // Store the uploaded clip index to remove
+      const indexToRemove = currentClipIndex;
       
-      // Reset the current clip index
+      // Adjust the current index before removing the clip
       if (capturedClips.length > 1) {
-        setCurrentClipIndex(0);
+        // If we're not at the first clip, go to previous clip
+        if (indexToRemove > 0) {
+          setCurrentClipIndex(indexToRemove - 1);
+        } else {
+          // If we're at the first clip, go to the next one
+          setCurrentClipIndex(0); // This will be adjusted after removal
+        }
       } else {
+        // If this was the only clip, set to null
         setCurrentClipIndex(null);
       }
       
@@ -282,6 +288,10 @@ const VideoPlayer = ({ videoSrc, onSnapshotCapture }: VideoPlayerProps) => {
         URL.revokeObjectURL(currentClipUrl);
         setCurrentClipUrl('');
       }
+      
+      // Remove the uploaded clip from our collection
+      setCapturedClips(prev => prev.filter((_, i) => i !== indexToRemove));
+      
     } catch (error) {
       console.error('Error uploading clip:', error);
       toast.error('Failed to upload clip');
