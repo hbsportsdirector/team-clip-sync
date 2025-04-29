@@ -166,9 +166,9 @@ const VideoPlayer = ({ videoSrc, onSnapshotCapture }: VideoPlayerProps) => {
       return;
     }
     
+    // Check for player selection, but don't block clip creation
     if (selectedPlayers.length === 0) {
-      toast.error('Please select at least one player before creating a clip');
-      return;
+      toast.warning('No players selected. You can still create clips, but select players before uploading.');
     }
     
     setIsCreatingClip(true);
@@ -198,16 +198,15 @@ const VideoPlayer = ({ videoSrc, onSnapshotCapture }: VideoPlayerProps) => {
         };
         
         // Create a simple blob with the metadata as JSON
-        const metadataString = JSON.stringify(clipMetadata);
         clipBlob = new Blob([videoSrc], { type: videoSrc.type });
       }
       
       // Add the clip to our collection
-      setCapturedClips(prev => [...prev, clipBlob]);
+      const newClips = [...capturedClips, clipBlob];
+      setCapturedClips(newClips);
       
-      // Set the index to the new clip
-      const newIndex = capturedClips.length;
-      setCurrentClipIndex(newIndex);
+      // Set the index to the new clip - fix: use the length of the updated array
+      setCurrentClipIndex(newClips.length - 1);
       
       toast.success('5-second clip created! You can create more clips or upload this one.');
     } catch (error) {
@@ -404,9 +403,9 @@ const VideoPlayer = ({ videoSrc, onSnapshotCapture }: VideoPlayerProps) => {
             size="icon"
             variant="outline"
             onClick={extractClip}
-            disabled={isCreatingClip || !(videoSrc instanceof Blob)}
+            disabled={isCreatingClip}
             className="bg-slate-100 hover:bg-slate-200"
-            title={selectedPlayers.length === 0 ? "Select players before creating a clip" : "Extract 5-second clip"}
+            title={selectedPlayers.length === 0 ? "Create a 5-second clip (select players before uploading)" : "Create a 5-second clip"}
           >
             <Scissors className="h-4 w-4" />
           </Button>
