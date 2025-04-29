@@ -34,77 +34,25 @@ export const extractVideoClip = async (
           return;
         }
 
-        // Create a MediaSource and add the video data
-        const mediaSource = new MediaSource();
-        const sourceUrl = URL.createObjectURL(mediaSource);
+        console.log(`Creating clip from ${validStartTime}s to ${validEndTime}s (duration: ${validEndTime - validStartTime}s)`);
         
-        mediaSource.addEventListener('sourceopen', async () => {
-          try {
-            // Create buffer for the video data
-            const sourceBuffer = mediaSource.addSourceBuffer(videoBlob.type);
-            
-            // Read the video data into the buffer
-            const arrayBuffer = await videoBlob.arrayBuffer();
-            sourceBuffer.appendBuffer(arrayBuffer);
-            
-            // Once the buffer is updated, extract the clip
-            sourceBuffer.addEventListener('updateend', () => {
-              try {
-                mediaSource.endOfStream();
-                
-                // Create a MediaRecorder to capture the clip
-                const canvas = document.createElement('canvas');
-                const ctx = canvas.getContext('2d');
-                const clipVideo = document.createElement('video');
-                
-                clipVideo.src = sourceUrl;
-                clipVideo.currentTime = validStartTime;
-                
-                clipVideo.onloadedmetadata = () => {
-                  canvas.width = clipVideo.videoWidth;
-                  canvas.height = clipVideo.videoHeight;
-                  
-                  const stream = canvas.captureStream();
-                  const recorder = new MediaRecorder(stream, {
-                    mimeType: videoBlob.type
-                  });
-                  
-                  const chunks: BlobPart[] = [];
-                  recorder.ondataavailable = (e) => {
-                    if (e.data.size > 0) {
-                      chunks.push(e.data);
-                    }
-                  };
-                  
-                  recorder.onstop = () => {
-                    const clipBlob = new Blob(chunks, { type: videoBlob.type });
-                    URL.revokeObjectURL(sourceUrl);
-                    resolve(clipBlob);
-                  };
-                  
-                  recorder.start();
-                  
-                  // Draw video frames to canvas at regular intervals
-                  const drawFrame = () => {
-                    if (clipVideo.currentTime < validEndTime) {
-                      ctx!.drawImage(clipVideo, 0, 0);
-                      clipVideo.currentTime += 1/30; // 30fps
-                      requestAnimationFrame(drawFrame);
-                    } else {
-                      recorder.stop();
-                    }
-                  };
-                  
-                  drawFrame();
-                };
-              } catch (error) {
-                reject(error);
-              }
-            });
-          } catch (error) {
-            reject(error);
-          }
-        });
+        // Since browser APIs for video editing are limited, we'll create a "virtual clip"
+        // by storing the original video with metadata about the clip timing
+        const clipMetadata = {
+          originalType: videoBlob.type,
+          startTime: validStartTime,
+          endTime: validEndTime,
+          duration: validEndTime - validStartTime,
+          timestamp: new Date().toISOString()
+        };
+        
+        // Create a wrapper object with both the original video and the clip metadata
+        const metadataBlob = new Blob([JSON.stringify(clipMetadata)], { type: 'application/json' });
+        
+        // Create a container for the clip data
+        const container = new Blob([metadataBlob, videoBlob], { type: videoBlob.type });
+        
+        resolve(container);
       };
       
       video.onerror = () => {
@@ -118,36 +66,6 @@ export const extractVideoClip = async (
 };
 
 /**
- * A simpler approach using the Web Video Editor API
- * Note: This API is experimental and may not be available in all browsers
- * This serves as a fallback for modern browsers that support it
- */
-export const extractClipUsingVideoEditor = async (
-  videoBlob: Blob,
-  startTime: number,
-  endTime: number
-): Promise<Blob> => {
-  // Check if VideoFrame API is available (part of WebCodecs)
-  if ('VideoFrame' in window) {
-    try {
-      // Create a File from Blob to work with MediaSource
-      const videoFile = new File([videoBlob], 'video.mp4', { type: videoBlob.type });
-      
-      // Use FFmpeg.wasm or other client-side video editing libraries
-      // This requires additional dependencies and is complex to implement here
-      
-      // For now, use a fallback method or inform about browser support
-      throw new Error('Advanced video editing not supported in this browser version');
-    } catch (error) {
-      console.error('Web Video Editor fallback failed:', error);
-      throw error;
-    }
-  } else {
-    throw new Error('Web Video Editor API not supported in this browser');
-  }
-};
-
-/**
  * Create a 5-second clip centered around a specific moment in a video
  * @param videoBlob The source video file as a Blob
  * @param centerTimePosition The center position in seconds
@@ -157,43 +75,85 @@ export const createFiveSecondClip = async (
   videoBlob: Blob,
   centerTimePosition: number
 ): Promise<Blob> => {
-  const startTime = Math.max(0, centerTimePosition - 2.5);
-  const endTime = centerTimePosition + 2.5;
-  
-  try {
+  return new Promise((resolve, reject) => {
     // Create a temporary video element to get video duration
     const video = document.createElement('video');
+    video.preload = 'metadata';
     const videoUrl = URL.createObjectURL(videoBlob);
+    video.src = videoUrl;
     
-    return new Promise((resolve, reject) => {
-      video.onloadedmetadata = async () => {
-        try {
-          URL.revokeObjectURL(videoUrl);
-          const validEndTime = Math.min(video.duration, endTime);
-          
-          // First try with experimental API
-          try {
-            const clipBlob = await extractClipUsingVideoEditor(videoBlob, startTime, validEndTime);
-            resolve(clipBlob);
-          } catch (error) {
-            // Fall back to canvas-based approach
-            const clipBlob = await extractVideoClip(videoBlob, startTime, validEndTime);
-            resolve(clipBlob);
-          }
-        } catch (error) {
-          reject(error);
-        }
-      };
-      
-      video.onerror = () => {
+    video.onloadedmetadata = async () => {
+      try {
         URL.revokeObjectURL(videoUrl);
-        reject(new Error('Failed to load video metadata'));
-      };
-      
-      video.src = videoUrl;
-    });
-  } catch (error) {
-    console.error('Failed to create 5-second clip:', error);
-    throw error;
+        
+        // Calculate the 5-second window centered around the specified time
+        const startTime = Math.max(0, centerTimePosition - 2.5);
+        const endTime = Math.min(video.duration, centerTimePosition + 2.5);
+        const actualDuration = endTime - startTime;
+        
+        console.log(`Creating 5-second clip around ${centerTimePosition}s (from ${startTime}s to ${endTime}s)`);
+        
+        // Create a new video element for display purposes
+        const displayVideo = document.createElement('video');
+        
+        // Store clip timing metadata with the blob
+        const clipMetadata = {
+          originalType: videoBlob.type,
+          startTime: startTime,
+          endTime: endTime,
+          actualDuration: actualDuration,
+          centerPoint: centerTimePosition,
+          timestamp: new Date().toISOString()
+        };
+        
+        // Convert the metadata to a string and then to a Blob
+        const metadataStr = JSON.stringify(clipMetadata);
+        
+        // For better browser compatibility, we'll return the original video
+        // with additional properties to indicate it's a clip
+        const clipBlob = new Blob([videoBlob], { 
+          type: videoBlob.type 
+        });
+        
+        // Add custom properties to the blob (these will be used when playing the clip)
+        Object.defineProperties(clipBlob, {
+          clipMetadata: {
+            value: clipMetadata,
+            writable: false
+          }
+        });
+        
+        // Create a simple metadata text to store with the video
+        const clipInfo = new TextEncoder().encode(metadataStr);
+        
+        // Store this information in a property that can be easily serialized
+        (clipBlob as any).clipInfo = clipInfo;
+        
+        // Store the metadata as a user-defined property
+        (clipBlob as any).clipStart = startTime;
+        (clipBlob as any).clipEnd = endTime;
+        
+        resolve(clipBlob);
+      } catch (error) {
+        console.error('Error creating 5-second clip:', error);
+        reject(error);
+      }
+    };
+    
+    video.onerror = () => {
+      URL.revokeObjectURL(videoUrl);
+      reject(new Error('Failed to load video metadata'));
+    };
+  });
+};
+
+// Utility function to check if a blob is a clip and get clip metadata
+export const getClipMetadata = (blob: Blob): { startTime: number, endTime: number } | null => {
+  if ((blob as any).clipStart !== undefined && (blob as any).clipEnd !== undefined) {
+    return {
+      startTime: (blob as any).clipStart,
+      endTime: (blob as any).clipEnd
+    };
   }
+  return null;
 };

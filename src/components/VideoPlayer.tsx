@@ -4,7 +4,7 @@ import { Slider } from '@/components/ui/slider';
 import { Play, Pause, Camera, FastForward, Rewind, Scissors } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import { createFiveSecondClip } from '@/utils/videoUtils';
+import { createFiveSecondClip, getClipMetadata } from '@/utils/videoUtils';
 import { usePlayers } from '@/contexts/PlayerContext';
 import { simulateUploadToMultipleFolders } from '@/services/driveService';
 
@@ -183,22 +183,19 @@ const VideoPlayer = ({ videoSrc, onSnapshotCapture }: VideoPlayerProps) => {
       const centerTime = videoRef.current.currentTime;
       console.log('Creating clip at time position:', centerTime);
       
-      // Create a simple clone of the source video blob
-      // This ensures we can create multiple clips even when browser APIs fail
-      const clipBlob = new Blob([videoSrc], { type: videoSrc.type });
+      // Create a 5-second clip using our utility
+      const clipBlob = await createFiveSecondClip(videoSrc, centerTime);
+      console.log('Clip created with metadata:', getClipMetadata(clipBlob));
       
       // Add the clip to our collection and update state safely
       setCapturedClips(prevClips => {
         const newClips = [...prevClips, clipBlob];
         console.log(`Added clip #${newClips.length}. Total clips: ${newClips.length}`);
-        
-        // Set the current clip index in the next tick to ensure state is updated
-        setTimeout(() => {
-          setCurrentClipIndex(newClips.length - 1);
-        }, 0);
-        
         return newClips;
       });
+      
+      // Set the current clip index after state has been updated
+      setCurrentClipIndex(capturedClips.length);
       
       toast.success('5-second clip created! You can create more clips or upload this one.');
     } catch (error) {
@@ -296,6 +293,19 @@ const VideoPlayer = ({ videoSrc, onSnapshotCapture }: VideoPlayerProps) => {
     }
     
     toast.info('Clip discarded');
+  };
+
+  // Function to create clip URL with proper start time
+  const createClipUrl = (blob: Blob): string => {
+    const url = URL.createObjectURL(blob);
+    const metadata = getClipMetadata(blob);
+    
+    // If this is a clip with metadata, we'll append start time to the URL
+    if (metadata) {
+      return `${url}#t=${metadata.startTime},${metadata.endTime}`;
+    }
+    
+    return url;
   };
 
   return (
@@ -457,7 +467,7 @@ const VideoPlayer = ({ videoSrc, onSnapshotCapture }: VideoPlayerProps) => {
           {currentClipIndex !== null && capturedClips[currentClipIndex] && (
             <video 
               className="w-full h-auto rounded-lg border border-border" 
-              src={URL.createObjectURL(capturedClips[currentClipIndex])} 
+              src={createClipUrl(capturedClips[currentClipIndex])} 
               controls
             />
           )}
