@@ -231,11 +231,11 @@ const Login = () => {
             </AlertDescription>
           </Alert>
           
-          <Alert variant="warning" className="bg-amber-50 border-amber-200">
+          <Alert variant="destructive" className="bg-amber-50 border-amber-200">
             <InfoIcon className="h-4 w-4 text-amber-500" />
             <AlertDescription className="text-xs">
               Important: To enable Google authentication, you must configure the Google provider in your Supabase project. 
-              Go to Authentication {'>'}  Providers {'>'}  Google in the Supabase dashboard.
+              Go to Authentication {'>'} Providers {'>'} Google in the Supabase dashboard.
             </AlertDescription>
           </Alert>
         </CardFooter>
