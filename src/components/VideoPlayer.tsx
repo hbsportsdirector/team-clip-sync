@@ -22,7 +22,8 @@ const VideoPlayer = ({ videoSrc, onSnapshotCapture }: VideoPlayerProps) => {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isCreatingClip, setIsCreatingClip] = useState(false);
-  const [capturedClip, setCapturedClip] = useState<Blob | null>(null);
+  const [capturedClips, setCapturedClips] = useState<Blob[]>([]);
+  const [currentClipIndex, setCurrentClipIndex] = useState<number | null>(null);
   
   const { selectedPlayers } = usePlayers();
   
@@ -101,6 +102,11 @@ const VideoPlayer = ({ videoSrc, onSnapshotCapture }: VideoPlayerProps) => {
       return;
     }
     
+    if (selectedPlayers.length === 0) {
+      toast.error('Please select at least one player before creating a clip');
+      return;
+    }
+    
     setIsCreatingClip(true);
     
     try {
@@ -110,10 +116,13 @@ const VideoPlayer = ({ videoSrc, onSnapshotCapture }: VideoPlayerProps) => {
       // Create a 5-second clip (2.5s before and 2.5s after)
       const clipBlob = await createFiveSecondClip(videoSrc, centerTime);
       
-      // Store the clip
-      setCapturedClip(clipBlob);
+      // Add the clip to our collection
+      setCapturedClips(prev => [...prev, clipBlob]);
       
-      toast.success('5-second clip created successfully!');
+      // Set the index to the new clip
+      setCurrentClipIndex(capturedClips.length);
+      
+      toast.success('5-second clip created successfully! You can create more clips or upload the current one.');
     } catch (error) {
       console.error('Error creating clip:', error);
       toast.error('Failed to create clip');
@@ -123,8 +132,8 @@ const VideoPlayer = ({ videoSrc, onSnapshotCapture }: VideoPlayerProps) => {
   };
 
   const handleUploadClip = async () => {
-    if (!capturedClip) {
-      toast.error('No clip to upload');
+    if (currentClipIndex === null || !capturedClips[currentClipIndex]) {
+      toast.error('No clip selected to upload');
       return;
     }
     
@@ -141,7 +150,7 @@ const VideoPlayer = ({ videoSrc, onSnapshotCapture }: VideoPlayerProps) => {
       
       // Upload to selected players' folders
       await simulateUploadToMultipleFolders(
-        capturedClip,
+        capturedClips[currentClipIndex],
         selectedPlayers.map(player => ({
           id: player.id,
           name: player.name,
@@ -152,8 +161,15 @@ const VideoPlayer = ({ videoSrc, onSnapshotCapture }: VideoPlayerProps) => {
       
       toast.success('Clip uploaded successfully!');
       
-      // Reset for new clip
-      setCapturedClip(null);
+      // Remove the uploaded clip from our collection
+      setCapturedClips(prev => prev.filter((_, i) => i !== currentClipIndex));
+      
+      // Reset the current clip index
+      if (capturedClips.length > 1) {
+        setCurrentClipIndex(0);
+      } else {
+        setCurrentClipIndex(null);
+      }
     } catch (error) {
       console.error('Error uploading clip:', error);
       toast.error('Failed to upload clip');
@@ -172,6 +188,36 @@ const VideoPlayer = ({ videoSrc, onSnapshotCapture }: VideoPlayerProps) => {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const navigateClip = (direction: 'prev' | 'next') => {
+    if (capturedClips.length === 0) return;
+    
+    if (currentClipIndex === null) {
+      setCurrentClipIndex(0);
+    } else {
+      if (direction === 'prev') {
+        setCurrentClipIndex(prev => (prev === null || prev <= 0) ? capturedClips.length - 1 : prev - 1);
+      } else {
+        setCurrentClipIndex(prev => (prev === null || prev >= capturedClips.length - 1) ? 0 : prev + 1);
+      }
+    }
+  };
+
+  const discardCurrentClip = () => {
+    if (currentClipIndex === null || capturedClips.length === 0) return;
+    
+    // Remove the current clip
+    setCapturedClips(prev => prev.filter((_, i) => i !== currentClipIndex));
+    
+    // Update the current index
+    if (capturedClips.length <= 1) {
+      setCurrentClipIndex(null);
+    } else if (currentClipIndex >= capturedClips.length - 1) {
+      setCurrentClipIndex(capturedClips.length - 2);
+    }
+    
+    toast.info('Clip discarded');
   };
 
   return (
@@ -268,9 +314,9 @@ const VideoPlayer = ({ videoSrc, onSnapshotCapture }: VideoPlayerProps) => {
             size="icon"
             variant="outline"
             onClick={extractClip}
-            disabled={isCreatingClip || !(videoSrc instanceof Blob)}
+            disabled={isCreatingClip || !(videoSrc instanceof Blob) || selectedPlayers.length === 0}
             className="bg-slate-100 hover:bg-slate-200"
-            title="Extract 5-second clip"
+            title={selectedPlayers.length === 0 ? "Select players before creating a clip" : "Extract 5-second clip"}
           >
             <Scissors className="h-4 w-4" />
           </Button>
@@ -285,28 +331,59 @@ const VideoPlayer = ({ videoSrc, onSnapshotCapture }: VideoPlayerProps) => {
         </div>
       </div>
       
-      {capturedClip && (
+      {capturedClips.length > 0 && (
         <div className="mt-4 space-y-2">
           <div className="flex justify-between items-center">
-            <span className="text-sm font-medium">Clip created</span>
-            <Button 
-              size="sm"
-              variant="outline" 
-              onClick={() => setCapturedClip(null)}
-            >
-              Discard
-            </Button>
+            <span className="text-sm font-medium">
+              {currentClipIndex !== null 
+                ? `Clip ${currentClipIndex + 1} of ${capturedClips.length}` 
+                : `${capturedClips.length} clip${capturedClips.length !== 1 ? 's' : ''} created`
+              }
+            </span>
+            
+            <div className="flex space-x-2">
+              {currentClipIndex !== null && (
+                <Button 
+                  size="sm"
+                  variant="outline" 
+                  onClick={discardCurrentClip}
+                >
+                  Discard
+                </Button>
+              )}
+              
+              {capturedClips.length > 1 && (
+                <div className="flex space-x-1">
+                  <Button 
+                    size="sm"
+                    variant="outline" 
+                    onClick={() => navigateClip('prev')}
+                  >
+                    Previous
+                  </Button>
+                  <Button 
+                    size="sm"
+                    variant="outline" 
+                    onClick={() => navigateClip('next')}
+                  >
+                    Next
+                  </Button>
+                </div>
+              )}
+            </div>
           </div>
           
-          <video 
-            className="w-full h-auto rounded-lg border border-border" 
-            src={URL.createObjectURL(capturedClip)} 
-            controls
-          />
+          {currentClipIndex !== null && capturedClips[currentClipIndex] && (
+            <video 
+              className="w-full h-auto rounded-lg border border-border" 
+              src={URL.createObjectURL(capturedClips[currentClipIndex])} 
+              controls
+            />
+          )}
           
           <Button
             onClick={handleUploadClip}
-            disabled={isCreatingClip || selectedPlayers.length === 0}
+            disabled={isCreatingClip || selectedPlayers.length === 0 || currentClipIndex === null}
             className="w-full"
           >
             {isCreatingClip 

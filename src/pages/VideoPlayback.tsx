@@ -69,6 +69,9 @@ const VideoPlayback = () => {
                 
                 <div className="mb-4 space-y-4">
                   <h3 className="text-lg font-medium">Select Players for Clip Upload</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Select players below before creating clips. You can create multiple clips for the selected players.
+                  </p>
                   <PlayerList />
                 </div>
                 
@@ -96,7 +99,7 @@ const VideoPlayback = () => {
           <InfoIcon className="h-4 w-4 text-muted-foreground" />
           <AlertDescription className="text-xs text-muted-foreground">
             Use slow-motion controls to analyze technique in detail. 
-            Capture snapshots or 5-second clips at key moments to share with your team.
+            Select players first, then capture 5-second clips at key moments to share with your team.
           </AlertDescription>
         </Alert>
       </main>
