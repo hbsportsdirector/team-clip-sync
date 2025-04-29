@@ -14,8 +14,18 @@ function App() {
     <Router>
       <AuthProvider>
         <PlayerProvider>
-          <div className="App">
-            <Toaster position="top-center" />
+          <div className="min-h-screen bg-background">
+            <Toaster 
+              position="top-center" 
+              toastOptions={{
+                style: { 
+                  borderRadius: '0.75rem',
+                  background: 'var(--card)',
+                  border: '1px solid var(--border)',
+                  boxShadow: '0 2px 10px rgba(0, 0, 0, 0.05)'
+                }
+              }} 
+            />
             
             <Routes>
               <Route path="/" element={<Index />} />

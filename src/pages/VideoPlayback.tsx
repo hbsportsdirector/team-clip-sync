@@ -39,38 +39,36 @@ const VideoPlayback = () => {
 
   return (
     <div className="min-h-screen bg-background pb-16">
-      <header className="border-b bg-card">
-        <div className="container max-w-md px-4 py-4 flex justify-between items-center">
-          <h1 className="text-xl font-bold text-team-primary">Video Playback</h1>
-          <Button variant="ghost" size="sm" onClick={() => navigate('/')}>
-            Back
-          </Button>
-        </div>
+      <header className="app-header rounded-b-lg">
+        <h1 className="text-xl font-medium text-team-primary">Video Playback</h1>
+        <Button variant="ghost" size="sm" onClick={() => navigate('/')} className="rounded-lg">
+          Back
+        </Button>
       </header>
 
-      <main className="container max-w-md px-4 py-6">
+      <main className="container max-w-md px-5 py-6">
         <Tabs defaultValue="library" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mb-6">
-            <TabsTrigger value="library">Video Library</TabsTrigger>
-            <TabsTrigger value="clip">Clip Capture</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2 mb-6 rounded-lg bg-secondary p-1">
+            <TabsTrigger value="library" className="rounded-md">Video Library</TabsTrigger>
+            <TabsTrigger value="clip" className="rounded-md">Clip Capture</TabsTrigger>
           </TabsList>
           
           <TabsContent value="library" className="space-y-4">
             {selectedVideo ? (
               <>
-                <div className="mb-4">
+                <div className="mb-4 minimalist-card p-3 overflow-hidden">
                   <VideoPlayer 
                     videoSrc={selectedVideo.blob} 
                     onSnapshotCapture={handleSnapshotCapture}
                   />
-                  <div className="text-center text-sm mt-2">
+                  <div className="text-center text-sm mt-2 text-muted-foreground">
                     {selectedVideo.name}
                   </div>
                 </div>
                 <Button 
                   variant="outline" 
                   onClick={() => setSelectedVideo(null)} 
-                  className="w-full mt-2"
+                  className="w-full mt-2 rounded-lg"
                 >
                   Back to Library
                 </Button>
@@ -87,22 +85,22 @@ const VideoPlayback = () => {
         
         <Separator className="my-6" />
         
-        <Alert className="bg-slate-50 mt-4">
-          <InfoIcon className="h-4 w-4 text-slate-500" />
-          <AlertDescription className="text-xs">
+        <Alert className="bg-secondary/50 mt-4 border-0 rounded-lg">
+          <InfoIcon className="h-4 w-4 text-muted-foreground" />
+          <AlertDescription className="text-xs text-muted-foreground">
             Use slow-motion controls to analyze technique in detail. 
             Capture snapshots at key moments to share with your team.
           </AlertDescription>
         </Alert>
       </main>
       
-      <footer className="fixed bottom-0 left-0 right-0 border-t bg-card py-3 px-4">
-        <div className="container max-w-md text-center text-xs text-muted-foreground">
+      <footer className="app-footer">
+        <div className="text-xs text-muted-foreground">
           &copy; {new Date().getFullYear()} TeamClipSync
         </div>
       </footer>
     </div>
   );
-};
+}
 
 export default VideoPlayback;

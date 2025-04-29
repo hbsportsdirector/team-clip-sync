@@ -13,9 +13,9 @@ export default {
 	theme: {
 		container: {
 			center: true,
-			padding: '2rem',
+			padding: '1rem',
 			screens: {
-				'2xl': '1400px'
+				'2xl': '1200px'
 			}
 		},
 		extend: {
@@ -64,16 +64,21 @@ export default {
 					ring: 'hsl(var(--sidebar-ring))'
 				},
 				team: {
-					primary: '#9b87f5',
-					dark: '#1A1F2C',
-					light: '#F1F0FB',
-					accent: '#33C3F0',
+					primary: '#33C3F0',
+					dark: '#2A3341',
+					light: '#F5F7FA',
+					accent: '#FF6A4C',
+					secondary: '#FFA33C'
 				}
 			},
 			borderRadius: {
-				lg: 'var(--radius)',
-				md: 'calc(var(--radius) - 2px)',
-				sm: 'calc(var(--radius) - 4px)'
+				lg: '1rem',
+				md: '0.75rem',
+				sm: '0.5rem'
+			},
+			boxShadow: {
+				'app': '0 8px 30px rgba(0, 0, 0, 0.08)',
+				'card': '0 2px 10px rgba(0, 0, 0, 0.05)'
 			},
 			keyframes: {
 				'accordion-down': {
