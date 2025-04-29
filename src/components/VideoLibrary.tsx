@@ -26,13 +26,15 @@ const VideoLibrary = ({ onSelectVideo }: VideoLibraryProps) => {
         if (file) {
           setIsLoading(true);
           try {
+            console.log('File selected:', file.name, file.type, file.size);
+            
             // Pass the video file directly to the parent component
             onSelectVideo({ 
               blob: file, 
               name: file.name 
             });
             
-            console.log('File selected:', file.name, file.type, file.size);
+            toast.success(`Video "${file.name}" loaded successfully`);
           } catch (error) {
             console.error('Error processing video:', error);
             toast.error('Failed to process the video');
@@ -56,7 +58,7 @@ const VideoLibrary = ({ onSelectVideo }: VideoLibraryProps) => {
         <CardContent className="p-6">
           <div className="flex flex-col items-center justify-center text-center space-y-4">
             <p className="text-muted-foreground text-sm">
-              Select a video from your device to play with slow-motion controls and capture snapshots
+              Select a video from your device to play with slow-motion controls, create clips, and capture snapshots
             </p>
             
             <Button

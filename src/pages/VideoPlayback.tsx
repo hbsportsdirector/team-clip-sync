@@ -107,6 +107,7 @@ const VideoPlayback = () => {
           <AlertDescription className="text-xs text-muted-foreground">
             Use slow-motion controls to analyze technique in detail. 
             Select players first, then capture 5-second clips at key moments to share with your team.
+            You can create multiple clips from a single video.
           </AlertDescription>
         </Alert>
       </main>
