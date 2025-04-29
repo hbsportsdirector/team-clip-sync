@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -57,7 +56,8 @@ const Login = () => {
     try {
       await signInWithGoogle();
     } catch (error) {
-      console.error(error);
+      console.error("Google login error:", error);
+      // Error is already handled in AuthContext
     } finally {
       setIsLoading(false);
     }
@@ -227,6 +227,14 @@ const Login = () => {
             <InfoIcon className="h-4 w-4" />
             <AlertDescription className="text-xs">
               Signing in with Google will request permission to access your Drive folders for easy folder selection when adding players.
+            </AlertDescription>
+          </Alert>
+          
+          <Alert variant="warning" className="bg-amber-50 border-amber-200">
+            <InfoIcon className="h-4 w-4 text-amber-500" />
+            <AlertDescription className="text-xs">
+              Important: To enable Google authentication, you must configure the Google provider in your Supabase project. 
+              Go to Authentication > Providers > Google in the Supabase dashboard.
             </AlertDescription>
           </Alert>
         </CardFooter>
