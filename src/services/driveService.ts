@@ -55,15 +55,21 @@ export const saveRecordingToDatabase = async (
   title: string,
   selectedPlayers: { id: string, name: string, driveFolder: string }[]
 ): Promise<string> => {
-  // Insert the recording
+  // Get the current user
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) {
+    throw new Error('User not authenticated');
+  }
+
+  // Insert the recording with the user_id
   const { data: recordingData, error: recordingError } = await supabase
     .from('recordings')
-    .insert([
-      {
-        file_path: filePath,
-        title: title || `Recording ${new Date().toISOString()}`
-      }
-    ])
+    .insert({
+      file_path: filePath,
+      title: title || `Recording ${new Date().toISOString()}`,
+      user_id: user.id
+    })
     .select()
     .single();
 
