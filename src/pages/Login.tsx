@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -234,7 +235,7 @@ const Login = () => {
             <InfoIcon className="h-4 w-4 text-amber-500" />
             <AlertDescription className="text-xs">
               Important: To enable Google authentication, you must configure the Google provider in your Supabase project. 
-              Go to Authentication > Providers > Google in the Supabase dashboard.
+              Go to Authentication {'>'}  Providers {'>'}  Google in the Supabase dashboard.
             </AlertDescription>
           </Alert>
         </CardFooter>
