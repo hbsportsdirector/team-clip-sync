@@ -16,7 +16,6 @@ const AuthRedirectHandler = () => {
   const navigate = useNavigate();
   
   useEffect(() => {
-    // Only run this effect once on initial mount
     const handleInitialAuthCheck = async () => {
       try {
         console.log("Checking authentication status on page load");
@@ -29,17 +28,30 @@ const AuthRedirectHandler = () => {
           return;
         }
         
-        if (data?.session) {
-          console.log("Active session found, user is authenticated");
-          // If we have an active session and we're on the login page, redirect to home
-          if (location.pathname === '/login') {
+        const isAuthenticated = !!data.session;
+        const isLoginPage = location.pathname === '/login';
+        const isHomePage = location.pathname === '/';
+        
+        console.log("Auth state:", { isAuthenticated, currentPath: location.pathname });
+        
+        if (isAuthenticated) {
+          // Check for saved redirect path from OAuth flow
+          const redirectPath = sessionStorage.getItem('redirect_after_auth');
+          if (redirectPath) {
+            console.log("Found saved redirect path:", redirectPath);
+            sessionStorage.removeItem('redirect_after_auth');
+            navigate(redirectPath, { replace: true });
+            return;
+          }
+          
+          // If authenticated and on login page, redirect to home
+          if (isLoginPage) {
             console.log("Redirecting to home from login page");
             navigate('/', { replace: true });
           }
         } else {
-          console.log("No active session found, user is not authenticated");
-          // If we don't have a session and we're not on the login page, redirect to login
-          if (location.pathname !== '/login' && location.pathname !== '/') {
+          // If not authenticated and not on login or home page, redirect to login
+          if (!isLoginPage && !isHomePage) {
             console.log("Redirecting to login page");
             navigate('/login', { replace: true });
           }
@@ -49,6 +61,7 @@ const AuthRedirectHandler = () => {
       }
     };
     
+    // Call the auth check function
     handleInitialAuthCheck();
   }, [location.pathname, navigate]);
   

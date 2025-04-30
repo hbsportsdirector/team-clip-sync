@@ -1,3 +1,4 @@
+
 import React, { createContext, useState, useContext, ReactNode, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -8,6 +9,7 @@ interface AuthState {
   user: User | null;
   session: Session | null;
   loading: boolean;
+  authStatus: 'initializing' | 'authenticated' | 'unauthenticated';
 }
 
 interface AuthContextType extends AuthState {
@@ -19,6 +21,7 @@ interface AuthContextType extends AuthState {
   hasGoogleConnected: boolean;
   refreshGoogleToken: () => Promise<string | null>;
   authError: string | null;
+  isProcessingAuth: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -29,10 +32,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     user: null,
     session: null,
     loading: true,
+    authStatus: 'initializing',
   });
   
   const [hasGoogleConnected, setHasGoogleConnected] = useState<boolean>(false);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [isProcessingAuth, setIsProcessingAuth] = useState<boolean>(false);
   
   // Check if the current user has Google Drive permissions
   const checkGoogleDrivePermissions = useCallback((session: Session | null) => {
@@ -45,11 +50,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     
     const googleProvider = session.user?.app_metadata?.provider === 'google';
     const hasToken = !!session.provider_token;
-    const isGoogleConnected = googleProvider && hasToken;
+    
+    // Check if the token has the required scope
+    let hasCorrectScope = false;
+    if (googleProvider && session.user?.app_metadata?.provider_scopes) {
+      const scopes = session.user.app_metadata.provider_scopes;
+      hasCorrectScope = Array.isArray(scopes) && 
+        scopes.includes('https://www.googleapis.com/auth/drive.file');
+    }
+    
+    const isGoogleConnected = googleProvider && hasToken && hasCorrectScope;
     
     console.log("Google Drive check:", {
       googleProvider,
       hasToken,
+      hasCorrectScope,
       isGoogleConnected,
       providerScopes: session.user?.app_metadata?.provider_scopes
     });
@@ -84,11 +99,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           user: session?.user ?? null,
           session: session,
           loading: false,
+          authStatus: session ? 'authenticated' : 'unauthenticated',
         });
         
         // Check Google Drive permissions
         const isGoogleConnected = checkGoogleDrivePermissions(session);
         console.log("Google connected status:", isGoogleConnected);
+        
+        // Reset processing state when auth state changes
+        setIsProcessingAuth(false);
         
         // Reset error on successful auth events
         if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
@@ -127,6 +146,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         user: session?.user ?? null,
         session: session,
         loading: false,
+        authStatus: session ? 'authenticated' : 'unauthenticated',
       });
     });
 
@@ -136,6 +156,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const login = async (email: string, password: string) => {
     try {
       setAuthError(null);
+      setIsProcessingAuth(true);
+      
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -148,12 +170,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setAuthError(error.message);
       toast.error(error.message || 'Failed to log in');
       throw error;
+    } finally {
+      // We'll let the onAuthStateChange handler reset this
+      // to avoid race conditions with the state update
     }
   };
 
   const signUp = async (email: string, password: string, name: string) => {
     try {
       setAuthError(null);
+      setIsProcessingAuth(true);
+      
       const { error } = await supabase.auth.signUp({
         email,
         password,
@@ -171,17 +198,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setAuthError(error.message);
       toast.error(error.message || 'Failed to sign up');
       throw error;
+    } finally {
+      // We'll let the onAuthStateChange handler reset this
+      // to avoid race conditions with the state update
     }
   };
   
   const signInWithGoogle = async () => {
     try {
       setAuthError(null);
+      setIsProcessingAuth(true);
       console.log("Starting Google sign-in process with Drive scope");
       
-      // Simplified Google sign-in with consistent redirect URL
+      // Save the redirect path if needed
+      const currentPath = window.location.pathname;
+      if (currentPath !== '/' && currentPath !== '/login') {
+        sessionStorage.setItem('redirect_after_auth', currentPath);
+      }
+      
+      // Use a consistent redirect URL for all OAuth flows
       const redirectUrl = `${window.location.origin}/`;
-      console.log("Using fixed redirect URL:", redirectUrl);
+      console.log("Using redirect URL:", redirectUrl);
       
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -206,13 +243,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } catch (error: any) {
       console.error('Google login error:', error);
       setAuthError(error.message);
+      setIsProcessingAuth(false);
       throw error;
     }
+    // Don't reset processing state here - will be handled by onAuthStateChange
   };
 
   const refreshGoogleToken = async (): Promise<string | null> => {
     try {
       setAuthError(null);
+      setIsProcessingAuth(true);
       console.log("Attempting to refresh session");
       
       // Attempt to refresh the session
@@ -233,10 +273,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           user: data.session.user,
           session: data.session,
           loading: false,
+          authStatus: 'authenticated',
         });
         
-        // Update Google connected status
-        setHasGoogleConnected(true);
+        // Check if the token has Drive permissions
+        checkGoogleDrivePermissions(data.session);
         
         return data.session.provider_token;
       } else {
@@ -255,6 +296,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       console.error('Error during token refresh:', error);
       setAuthError(error.message);
       return null;
+    } finally {
+      setIsProcessingAuth(false);
     }
   };
 
@@ -290,6 +333,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const logout = async () => {
     try {
       setAuthError(null);
+      setIsProcessingAuth(true);
+      
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
       
@@ -298,6 +343,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         user: null,
         session: null,
         loading: false,
+        authStatus: 'unauthenticated',
       });
       
       setHasGoogleConnected(false);
@@ -306,6 +352,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       console.error('Logout error:', error);
       setAuthError(error.message);
       toast.error(error.message || 'Failed to log out');
+    } finally {
+      setIsProcessingAuth(false);
     }
   };
 
@@ -321,6 +369,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         hasGoogleConnected,
         refreshGoogleToken,
         authError,
+        isProcessingAuth,
       }}
     >
       {children}

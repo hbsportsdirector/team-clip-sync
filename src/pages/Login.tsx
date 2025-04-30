@@ -17,18 +17,26 @@ const Login = () => {
   const [name, setName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-  const { login, signUp, signInWithGoogle, isAuthenticated, loading, authError } = useAuth();
+  const { 
+    login, 
+    signUp, 
+    signInWithGoogle, 
+    isAuthenticated, 
+    loading, 
+    authError, 
+    isProcessingAuth 
+  } = useAuth();
   const navigate = useNavigate();
 
   // Log auth state for debugging
   useEffect(() => {
-    console.log("Login page - Auth state:", { isAuthenticated, loading, authError });
+    console.log("Login page - Auth state:", { isAuthenticated, loading, authError, isProcessingAuth });
     
-    if (isAuthenticated) {
+    if (isAuthenticated && !isProcessingAuth) {
       console.log("User is authenticated, navigating to home");
       navigate('/', { replace: true });
     }
-  }, [isAuthenticated, loading, navigate, authError]);
+  }, [isAuthenticated, loading, navigate, authError, isProcessingAuth]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,7 +47,6 @@ const Login = () => {
       await login(email, password);
     } catch (error) {
       console.error("Login submission error:", error);
-    } finally {
       setIsLoading(false);
     }
   };
@@ -53,35 +60,46 @@ const Login = () => {
       await signUp(email, password, name);
     } catch (error) {
       console.error("Signup submission error:", error);
-    } finally {
       setIsLoading(false);
     }
   };
 
   const handleGoogleLogin = async () => {
-    if (googleLoading) return; // Prevent double clicks
+    if (googleLoading || isProcessingAuth) return; // Prevent double clicks
     
     setGoogleLoading(true);
     try {
       console.log("Initiating Google login from Login page");
       await signInWithGoogle();
       
-      // We won't immediately redirect here as the OAuth flow will handle that
-      // This prevents race conditions with the redirect
+      // OAuth flow will handle the redirect, so we don't need to do anything else here
       
       // Set a timeout to reset the button state if for some reason we're still on this page
+      // This helps if something goes wrong and we don't get redirected
       setTimeout(() => {
-        setGoogleLoading(false);
-      }, 5000);
+        if (!isAuthenticated && !isProcessingAuth) {
+          setGoogleLoading(false);
+        }
+      }, 10000);
     } catch (error) {
       console.error("Google login submission error:", error);
       setGoogleLoading(false);
     }
   };
 
-  // If already authenticated, don't show login form
-  if (isAuthenticated && !loading) {
-    return null; // Will be redirected by the useEffect above
+  // If already authenticated and not processing auth, don't show login form
+  if (isAuthenticated && !loading && !isProcessingAuth) {
+    // Will be redirected by the useEffect above
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <Card className="w-full max-w-md shadow-lg">
+          <CardContent className="flex flex-col items-center justify-center p-6 space-y-4">
+            <Loader2 className="h-8 w-8 animate-spin text-team-primary" />
+            <p>You are logged in. Redirecting...</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   return (
@@ -108,6 +126,15 @@ const Login = () => {
               </AlertDescription>
             </Alert>
           )}
+
+          {isProcessingAuth && (
+            <Alert className="mb-4">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <AlertDescription>
+                Processing authentication, please wait...
+              </AlertDescription>
+            </Alert>
+          )}
           
           <Tabs defaultValue="login" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
@@ -126,6 +153,7 @@ const Login = () => {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
+                    disabled={isLoading || isProcessingAuth}
                   />
                 </div>
                 
@@ -137,15 +165,21 @@ const Login = () => {
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    disabled={isLoading || isProcessingAuth}
                   />
                 </div>
                 
                 <Button 
                   type="submit" 
                   className="w-full bg-team-primary hover:bg-team-primary/90" 
-                  disabled={isLoading}
+                  disabled={isLoading || isProcessingAuth}
                 >
-                  {isLoading ? 'Logging in...' : 'Login'}
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Logging in...
+                    </>
+                  ) : 'Login'}
                 </Button>
               </form>
             </TabsContent>
@@ -161,6 +195,7 @@ const Login = () => {
                     required
                     value={name}
                     onChange={(e) => setName(e.target.value)}
+                    disabled={isLoading || isProcessingAuth}
                   />
                 </div>
                 
@@ -173,6 +208,7 @@ const Login = () => {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
+                    disabled={isLoading || isProcessingAuth}
                   />
                 </div>
                 
@@ -184,15 +220,21 @@ const Login = () => {
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    disabled={isLoading || isProcessingAuth}
                   />
                 </div>
                 
                 <Button 
                   type="submit" 
                   className="w-full bg-team-primary hover:bg-team-primary/90" 
-                  disabled={isLoading}
+                  disabled={isLoading || isProcessingAuth}
                 >
-                  {isLoading ? 'Creating Account...' : 'Create Account'}
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Creating Account...
+                    </>
+                  ) : 'Create Account'}
                 </Button>
               </form>
             </TabsContent>
@@ -217,9 +259,9 @@ const Login = () => {
             onClick={handleGoogleLogin}
             className="w-full" 
             variant="default"
-            disabled={googleLoading}
+            disabled={googleLoading || isProcessingAuth}
           >
-            {googleLoading ? (
+            {googleLoading || isProcessingAuth ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Connecting to Google...
