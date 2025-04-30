@@ -66,14 +66,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         console.log("Auth state change event:", event, "Session exists:", !!session);
-        console.log("Session details:", session ? {
-          provider: session.user?.app_metadata?.provider,
-          hasProviderToken: !!session.provider_token,
-          hasAccessToken: !!session.access_token,
-          user: session.user?.email,
-          expires: session.expires_at ? new Date(session.expires_at * 1000).toISOString() : 'unknown',
-          scopes: session.user?.app_metadata?.provider_scopes
-        } : "No session");
+        
+        if (session) {
+          console.log("Session details:", {
+            provider: session.user?.app_metadata?.provider,
+            hasProviderToken: !!session.provider_token,
+            hasAccessToken: !!session.access_token,
+            user: session.user?.email,
+            expires: session.expires_at ? new Date(session.expires_at * 1000).toISOString() : 'unknown',
+            scopes: session.user?.app_metadata?.provider_scopes
+          });
+        } else {
+          console.log("No session");
+        }
         
         setAuthState({
           isAuthenticated: !!session,
@@ -91,12 +96,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setAuthError(null);
           if (session?.user) {
             toast.success(`Welcome, ${session.user.user_metadata.name || session.user.email}`);
-            
-            // If user signed in with Google but doesn't have a provider token
-            if (session.user?.app_metadata?.provider === 'google' && !session.provider_token) {
-              console.log("User signed in with Google but no provider token found");
-              toast.warning("Google Drive access not detected. You may need to reconnect with Google to access Drive features.");
-            }
           }
         }
         
@@ -109,16 +108,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     );
 
     // Check for existing session
-    console.log("Checking for existing session");
     supabase.auth.getSession().then(({ data: { session }, error }) => {
       console.log("Existing session check result:", !!session, "Error:", error);
       
       if (session) {
         console.log("Found session for user:", session.user?.email);
-        console.log("Provider:", session.user?.app_metadata?.provider);
-        console.log("Has provider token:", !!session.provider_token);
-        console.log("Session expires at:", session.expires_at ? 
-          new Date(session.expires_at * 1000).toISOString() : 'unknown');
         
         // Check Google Drive permissions
         checkGoogleDrivePermissions(session);
@@ -186,20 +180,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setAuthError(null);
       console.log("Starting Google sign-in process with Drive scope");
       
-      // Log user's current URL to help with debugging redirect issues
-      const currentUrl = window.location.href;
+      // Get the correct redirect URL
       const currentOrigin = window.location.origin;
-      console.log("Current URL:", currentUrl);
       console.log("Current origin:", currentOrigin);
       
+      // Use a single, consistent redirect URL to prevent issues
+      const redirectUrl = `${currentOrigin}/`;
+      console.log("Using redirect URL:", redirectUrl);
+      
       // Always request the drive.file scope for Google Drive access
-      // Using prompt=consent to force the consent screen every time to ensure Drive permission is granted
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           scopes: 'https://www.googleapis.com/auth/drive.file',
-          redirectTo: `${currentOrigin}/`,
+          redirectTo: redirectUrl,
           queryParams: {
+            // These params ensure we get a refresh token every time
             access_type: 'offline',
             prompt: 'consent',
           }
@@ -214,7 +210,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
       
       console.log("Google sign-in initiated successfully, redirecting to Google");
-      toast.info("Connecting to Google and requesting Drive access...");
     } catch (error: any) {
       console.error('Google login error:', error);
       setAuthError(error.message);
@@ -226,6 +221,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       setAuthError(null);
       console.log("Attempting to refresh session");
+      
       // Attempt to refresh the session
       const { data, error } = await supabase.auth.refreshSession();
       
@@ -237,6 +233,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       if (data.session?.provider_token) {
         console.log('Successfully refreshed Google token');
+        
         // Update the session state after refresh
         setAuthState({
           isAuthenticated: true,
@@ -251,12 +248,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return data.session.provider_token;
       } else {
         console.log('No provider token in refreshed session');
-        setAuthError("No Google token found after refresh");
         
         // If the user is authenticated with Google but no provider token,
-        // they likely need to re-authenticate with the correct scopes
+        // they may need to re-authenticate with the correct scopes
         if (data.session?.user?.app_metadata?.provider === 'google') {
           console.log("User authenticated with Google but missing provider token. May need to re-auth.");
+          // Don't set an error here to avoid confusion
         }
         
         return null;

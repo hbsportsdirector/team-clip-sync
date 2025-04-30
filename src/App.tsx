@@ -16,47 +16,41 @@ const AuthRedirectHandler = () => {
   const navigate = useNavigate();
   
   useEffect(() => {
-    // Check if this is a redirect from OAuth (will have hash or query params)
-    if (location.hash || location.search) {
-      console.log("Detected potential auth redirect with params", { 
-        hash: location.hash,
-        search: location.search 
-      });
-      
-      // Handle the auth callback
-      const handleAuthCallback = async () => {
-        try {
-          console.log("Processing auth redirect...");
-          
-          // Check if we have a valid session after the redirect
-          const { data, error } = await supabase.auth.getSession();
-          
-          if (error) {
-            console.error("Error processing auth callback:", error);
-            throw error;
-          }
-          
-          if (data?.session) {
-            console.log("Authentication successful, session details:", {
-              user: data.session.user.email,
-              expiresAt: new Date(data.session.expires_at! * 1000).toISOString(),
-              provider: data.session.user.app_metadata?.provider,
-              hasProviderToken: !!data.session.provider_token
-            });
+    // Only run this effect once on initial mount
+    const handleInitialAuthCheck = async () => {
+      try {
+        console.log("Checking authentication status on page load");
+        
+        // Get the current session
+        const { data, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error("Error checking session:", error);
+          return;
+        }
+        
+        if (data?.session) {
+          console.log("Active session found, user is authenticated");
+          // If we have an active session and we're on the login page, redirect to home
+          if (location.pathname === '/login') {
+            console.log("Redirecting to home from login page");
             navigate('/', { replace: true });
-          } else {
-            console.log("No session found after redirect, staying on login page");
+          }
+        } else {
+          console.log("No active session found, user is not authenticated");
+          // If we don't have a session and we're not on the login page, redirect to login
+          if (location.pathname !== '/login') {
+            console.log("Redirecting to login page");
             navigate('/login', { replace: true });
           }
-        } catch (error) {
-          console.error("Failed to process authentication redirect:", error);
-          navigate('/login', { replace: true });
         }
-      };
-      
-      handleAuthCallback();
-    }
-  }, [location, navigate]);
+      } catch (error) {
+        console.error("Failed to check authentication status:", error);
+      }
+    };
+    
+    handleInitialAuthCheck();
+  }, []);
   
   return null;
 };

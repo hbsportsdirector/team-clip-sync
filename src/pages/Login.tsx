@@ -26,7 +26,7 @@ const Login = () => {
     
     if (isAuthenticated) {
       console.log("User is authenticated, navigating to home");
-      navigate('/');
+      navigate('/', { replace: true });
     }
   }, [isAuthenticated, loading, navigate, authError]);
 
@@ -59,17 +59,23 @@ const Login = () => {
   };
 
   const handleGoogleLogin = async () => {
+    if (googleLoading) return; // Prevent double clicks
+    
     setGoogleLoading(true);
     try {
       console.log("Initiating Google login from Login page");
       await signInWithGoogle();
-      // Note: This won't execute immediately as signInWithGoogle redirects to Google
+      // This won't execute immediately as we're redirecting
     } catch (error) {
       console.error("Google login submission error:", error);
       setGoogleLoading(false);
     }
-    // No need to set loading to false in finally as we're redirecting away
   };
+
+  // If already authenticated, don't show login form
+  if (isAuthenticated && !loading) {
+    return null; // Will be redirected by the useEffect above
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-b from-team-light to-white">
