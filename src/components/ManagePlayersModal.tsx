@@ -21,11 +21,20 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { useAuth } from '@/contexts/AuthContext';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const ManagePlayersModal = () => {
   const [open, setOpen] = useState(false);
   const { players, removePlayer, updatePlayerDriveFolder } = usePlayers();
-  const { hasGoogleConnected } = useAuth();
+  const { hasGoogleConnected, signInWithGoogle } = useAuth();
+
+  const handleConnectGoogle = async () => {
+    try {
+      await signInWithGoogle();
+    } catch (error) {
+      console.error("Error connecting to Google:", error);
+    }
+  };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -44,13 +53,22 @@ const ManagePlayersModal = () => {
         </DialogHeader>
         
         {!hasGoogleConnected && (
-          <div className="bg-amber-50 border border-amber-200 rounded-md p-3 mb-4 flex items-start">
-            <AlertCircle className="h-5 w-5 text-amber-500 mr-2 flex-shrink-0 mt-0.5" />
-            <div className="text-sm text-amber-800">
-              <p className="font-medium">Google Drive not connected</p>
-              <p>Sign in with Google to access your Drive folders.</p>
-            </div>
-          </div>
+          <Alert variant="destructive" className="mb-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              <div className="flex flex-col gap-2">
+                <p>Google Drive not connected. You need to connect your Google account to access Drive folders.</p>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="w-full mt-2"
+                  onClick={handleConnectGoogle}
+                >
+                  Connect Google Drive
+                </Button>
+              </div>
+            </AlertDescription>
+          </Alert>
         )}
         
         <div className="max-h-[50vh] overflow-y-auto py-4">
@@ -62,6 +80,7 @@ const ManagePlayersModal = () => {
                   player={player}
                   onRemove={() => removePlayer(player.id)}
                   onUpdateFolder={(folderId, folderName) => updatePlayerDriveFolder(player.id, folderId, folderName)}
+                  hasGoogleConnected={hasGoogleConnected}
                 />
               ))}
             </div>
@@ -88,9 +107,10 @@ interface PlayerManageItemProps {
   player: Player;
   onRemove: () => void;
   onUpdateFolder: (folderId: string, folderName: string) => void;
+  hasGoogleConnected: boolean;
 }
 
-const PlayerManageItem = ({ player, onRemove, onUpdateFolder }: PlayerManageItemProps) => {
+const PlayerManageItem = ({ player, onRemove, onUpdateFolder, hasGoogleConnected }: PlayerManageItemProps) => {
   const [folderPopoverOpen, setFolderPopoverOpen] = useState(false);
   
   return (
@@ -110,28 +130,40 @@ const PlayerManageItem = ({ player, onRemove, onUpdateFolder }: PlayerManageItem
       </div>
       
       <div className="mt-2 text-xs text-muted-foreground">
-        <Popover open={folderPopoverOpen} onOpenChange={setFolderPopoverOpen}>
-          <PopoverTrigger asChild>
-            <Button variant="outline" size="sm" className="w-full text-left flex justify-between">
-              <span className="truncate flex-grow">
-                {player.driveFolder ? 'Change Google Drive Folder' : 'Set Google Drive Folder'}
-              </span>
-              <FolderIcon className="h-4 w-4 ml-2 flex-shrink-0" />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-80 p-0">
-            <div className="p-4">
-              <GoogleDriveFolderPicker
-                onSelect={(folderId, folderName) => {
-                  onUpdateFolder(folderId, folderName);
-                  setFolderPopoverOpen(false);
-                }}
-                selectedFolderId={player.driveFolder}
-                buttonLabel="Select Folder"
-              />
-            </div>
-          </PopoverContent>
-        </Popover>
+        {hasGoogleConnected ? (
+          <Popover open={folderPopoverOpen} onOpenChange={setFolderPopoverOpen}>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="w-full text-left flex justify-between">
+                <span className="truncate flex-grow">
+                  {player.driveFolder ? 'Change Google Drive Folder' : 'Set Google Drive Folder'}
+                </span>
+                <FolderIcon className="h-4 w-4 ml-2 flex-shrink-0" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80 p-0">
+              <div className="p-4">
+                <GoogleDriveFolderPicker
+                  onSelect={(folderId, folderName) => {
+                    onUpdateFolder(folderId, folderName);
+                    setFolderPopoverOpen(false);
+                  }}
+                  selectedFolderId={player.driveFolder}
+                  buttonLabel="Select Folder"
+                />
+              </div>
+            </PopoverContent>
+          </Popover>
+        ) : (
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="w-full text-left flex justify-between opacity-70" 
+            disabled
+          >
+            <span className="truncate flex-grow">Connect Google to set folder</span>
+            <FolderIcon className="h-4 w-4 ml-2 flex-shrink-0" />
+          </Button>
+        )}
       </div>
       
       {player.driveFolder && (

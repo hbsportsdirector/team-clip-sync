@@ -18,6 +18,7 @@ interface AuthContextType extends AuthState {
   logout: () => Promise<void>;
   getGoogleAccessToken: () => Promise<string | null>;
   hasGoogleConnected: boolean;
+  refreshGoogleToken: () => Promise<string | null>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -121,6 +122,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const refreshGoogleToken = async (): Promise<string | null> => {
+    try {
+      // Attempt to refresh the session
+      const { data, error } = await supabase.auth.refreshSession();
+      
+      if (error) {
+        console.error('Error refreshing session:', error);
+        return null;
+      }
+      
+      if (data.session?.provider_token) {
+        console.log('Successfully refreshed Google token');
+        return data.session.provider_token;
+      } else {
+        console.log('No provider token in refreshed session');
+        return null;
+      }
+    } catch (error) {
+      console.error('Error during token refresh:', error);
+      return null;
+    }
+  };
+
   const getGoogleAccessToken = async (): Promise<string | null> => {
     try {
       if (!authState.session) {
@@ -129,6 +153,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       // Check if the user is authenticated with Google
       if (authState.session.provider_token) {
+        console.log('Using existing provider token');
         return authState.session.provider_token;
       } else {
         console.log('No Google provider token found, user might not be logged in with Google');
@@ -169,6 +194,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         logout,
         getGoogleAccessToken,
         hasGoogleConnected,
+        refreshGoogleToken,
       }}
     >
       {children}

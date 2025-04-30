@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
-import { Loader2, FolderIcon, ChevronRight, AlertCircle } from 'lucide-react';
+import { Loader2, FolderIcon, ChevronRight, AlertCircle, RefreshCcw } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { getGoogleDriveFolderLink } from '@/services/driveService';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -32,7 +32,7 @@ const GoogleDriveFolderPicker = ({
   const [folderPath, setFolderPath] = useState<Folder[]>([{ id: 'root', name: 'My Drive' }]);
   const [searchTerm, setSearchTerm] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const { getGoogleAccessToken, isAuthenticated, hasGoogleConnected } = useAuth();
+  const { getGoogleAccessToken, isAuthenticated, hasGoogleConnected, signInWithGoogle } = useAuth();
 
   const fetchFolders = async (folderId: string = 'root') => {
     setLoading(true);
@@ -61,8 +61,15 @@ const GoogleDriveFolderPicker = ({
       if (!response.ok) {
         const errorData = await response.text();
         console.error('Google Drive API error:', errorData);
-        setError(`API Error: ${response.status} ${response.statusText}`);
-        throw new Error(`Failed to fetch folders: ${response.status} ${response.statusText}`);
+        
+        if (response.status === 403) {
+          setError(`Permission denied (403). Your Google account may not have the necessary permissions to access Drive folders. Try reconnecting your Google account.`);
+          toast.error('Permission denied for Google Drive. Try reconnecting your Google account.');
+        } else {
+          setError(`API Error: ${response.status} ${response.statusText}`);
+        }
+        
+        throw new Error(`Failed to fetch folders: ${response.status}`);
       }
       
       const data = await response.json();
@@ -81,7 +88,6 @@ const GoogleDriveFolderPicker = ({
     } catch (error) {
       console.error('Error fetching folders:', error);
       setError(error instanceof Error ? error.message : 'An unknown error occurred');
-      toast.error('Failed to load Google Drive folders');
     } finally {
       setLoading(false);
     }
@@ -124,6 +130,18 @@ const GoogleDriveFolderPicker = ({
     
     console.log("Opening folder picker dialog");
     setIsOpen(true);
+  };
+
+  // Handle Google reconnection
+  const handleReconnectGoogle = async () => {
+    try {
+      await signInWithGoogle();
+      toast.success("Reconnecting to Google. Please try again after login.");
+      setIsOpen(false);
+    } catch (error) {
+      console.error("Error reconnecting to Google:", error);
+      toast.error("Failed to reconnect to Google");
+    }
   };
 
   useEffect(() => {
@@ -209,6 +227,19 @@ const GoogleDriveFolderPicker = ({
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
                   {error}
+                  {error.includes('Permission denied') && (
+                    <div className="mt-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="flex items-center gap-2"
+                        onClick={handleReconnectGoogle}
+                      >
+                        <RefreshCcw className="h-4 w-4" />
+                        Reconnect Google Account
+                      </Button>
+                    </div>
+                  )}
                 </AlertDescription>
               </Alert>
             )}
