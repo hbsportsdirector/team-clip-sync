@@ -46,7 +46,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           provider: session.user?.app_metadata?.provider,
           hasProviderToken: !!session.provider_token,
           hasAccessToken: !!session.access_token,
-          user: session.user?.email
+          user: session.user?.email,
+          expires: session.expires_at ? new Date(session.expires_at * 1000).toISOString() : 'unknown'
         } : "No session");
         
         setAuthState({
@@ -68,6 +69,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             toast.success(`Welcome, ${session.user.user_metadata.name || session.user.email}`);
           }
         }
+        
+        // Handle sign out
+        if (event === 'SIGNED_OUT') {
+          console.log("User signed out");
+        }
       }
     );
 
@@ -80,6 +86,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         console.log("Found session for user:", session.user?.email);
         console.log("Provider:", session.user?.app_metadata?.provider);
         console.log("Has provider token:", !!session.provider_token);
+        console.log("Session expires at:", session.expires_at ? 
+          new Date(session.expires_at * 1000).toISOString() : 'unknown');
       }
       
       if (error) {
@@ -148,13 +156,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       console.log("Starting Google sign-in process");
       
       // Log user's current URL to help with debugging redirect issues
-      console.log("Current origin:", window.location.origin);
+      const currentUrl = window.location.href;
+      const currentOrigin = window.location.origin;
+      console.log("Current URL:", currentUrl);
+      console.log("Current origin:", currentOrigin);
       
       const { error, data } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           scopes: 'https://www.googleapis.com/auth/drive.file',
-          redirectTo: `${window.location.origin}/`,
+          redirectTo: `${currentOrigin}/`,
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',
