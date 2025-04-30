@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { usePlayers } from '@/contexts/PlayerContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,6 +27,15 @@ const AddPlayerForm = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { addPlayer } = usePlayers();
   const { hasGoogleConnected, signInWithGoogle } = useAuth();
+
+  // Reset form when dialog opens/closes
+  useEffect(() => {
+    if (!open) {
+      setName('');
+      setDriveFolder('');
+      setDriveFolderName('');
+    }
+  }, [open]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,9 +75,9 @@ const AddPlayerForm = () => {
     try {
       // Close the dialog to prevent state issues after redirect
       setOpen(false);
-      await signInWithGoogle();
       toast.info('Connecting to Google Drive...');
-      // The redirect happens automatically after this
+      await signInWithGoogle();
+      // The redirect will happen automatically
     } catch (error) {
       console.error('Error connecting to Google:', error);
       toast.error('Failed to connect with Google');
@@ -112,7 +121,7 @@ const AddPlayerForm = () => {
                 <Alert className="bg-amber-50 border-amber-200 mb-2">
                   <AlertTriangle className="h-4 w-4 text-amber-500" />
                   <AlertDescription className="text-xs text-amber-700">
-                    You're not connected with Google. Videos will be saved locally but not uploaded to Google Drive.
+                    You're not connected with Google Drive. Videos will be saved locally but not uploaded to Google Drive.
                     <Button 
                       variant="outline" 
                       size="sm" 

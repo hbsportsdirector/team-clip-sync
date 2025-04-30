@@ -42,12 +42,12 @@ const GoogleDriveFolderPicker = ({
       const accessToken = await getGoogleAccessToken();
       
       if (!accessToken) {
-        setError('No Google access token available. Please ensure you are logged in with Google.');
-        toast.error('Unable to access Google Drive. Please login with Google.');
+        setError('No Google access token available. Please connect your Google account with Drive permissions.');
+        console.log('No access token available for Drive API');
         return;
       }
 
-      console.log('Fetching folders with token', accessToken.substring(0, 10) + '...');
+      console.log('Fetching folders with access token');
       
       const query = encodeURIComponent(`mimeType='application/vnd.google-apps.folder' and '${folderId}' in parents and trashed=false`);
       const url = `https://www.googleapis.com/drive/v3/files?q=${query}&fields=files(id,name)`;
@@ -63,10 +63,9 @@ const GoogleDriveFolderPicker = ({
         console.error('Google Drive API error:', errorData);
         
         if (response.status === 403) {
-          setError(`Permission denied (403). Your Google account may not have the necessary permissions to access Drive folders. Try reconnecting your Google account.`);
-          toast.error('Permission denied for Google Drive. Try reconnecting your Google account.');
+          setError(`Permission denied. Your Google account may not have the necessary permissions for Drive folders.`);
         } else if (response.status === 401) {
-          setError('Authentication token expired. Please try refreshing your session.');
+          setError('Authentication token expired. Please try reconnecting your Google account.');
           
           // Attempt to refresh the token
           const refreshedToken = await refreshGoogleToken();
@@ -76,7 +75,6 @@ const GoogleDriveFolderPicker = ({
             setTimeout(() => fetchFolders(folderId), 1000);
             return;
           } else {
-            // If token refresh didn't work, try complete reauthentication
             setError('Token refresh failed. Please reconnect with Google to grant Drive permissions.');
           }
         } else {
@@ -126,23 +124,11 @@ const GoogleDriveFolderPicker = ({
   };
 
   const handleOpenDialog = async () => {
-    if (!isAuthenticated) {
-      toast.error("Please login to access Drive folders");
-      return;
-    }
-    
     if (!hasGoogleConnected) {
-      toast.error("Google Drive access not available. Please sign in with Google.");
+      toast.error("Google Drive access not available. Please connect with Google Drive first.");
       return;
     }
     
-    const accessToken = await getGoogleAccessToken();
-    if (!accessToken) {
-      toast.error("Google Drive access not available. Please sign in with Google again.");
-      return;
-    }
-    
-    console.log("Opening folder picker dialog");
     setIsOpen(true);
   };
 
@@ -152,7 +138,7 @@ const GoogleDriveFolderPicker = ({
       setIsOpen(false); // Close the dialog first
       toast.info("Reconnecting to Google Drive...");
       await signInWithGoogle();
-      // The redirect will happen here, so we don't need to handle anything else
+      // The redirect will happen here
     } catch (error) {
       console.error("Error reconnecting to Google:", error);
       toast.error("Failed to reconnect to Google");
@@ -176,9 +162,7 @@ const GoogleDriveFolderPicker = ({
     } else {
       return (
         <>
-          <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12 0C5.372 0 0 5.373 0 12s5.372 12 12 12 12-5.373 12-12S18.628 0 12 0zm.14 19.018c-3.868 0-7-3.14-7-7.018 0-3.878 3.132-7.018 7-7.018 1.89 0 3.47.697 4.682 1.829l-1.974 1.978v-.004c-.735-.702-1.667-1.062-2.708-1.062-2.31 0-4.187 1.956-4.187 4.273 0 2.315 1.877 4.277 4.187 4.277 2.096 0 3.522-1.202 3.816-2.852H12.14v-2.737h6.585c.088.47.135.96.135 1.474 0 4.01-2.677 6.86-6.72 6.86z" fill="currentColor"/>
-          </svg>
+          <FolderIcon className="w-4 h-4 mr-2" />
           {buttonLabel}
         </>
       );
@@ -188,13 +172,12 @@ const GoogleDriveFolderPicker = ({
   return (
     <>
       <Button 
-        onClick={handleOpenDialog}
+        onClick={hasGoogleConnected ? handleOpenDialog : handleReconnectGoogle}
         variant="outline"
         type="button"
         className="w-full"
-        disabled={!hasGoogleConnected}
       >
-        {renderButtonContent()}
+        {hasGoogleConnected ? renderButtonContent() : "Connect Google Drive First"}
       </Button>
 
       {selectedFolderId && (
@@ -243,7 +226,7 @@ const GoogleDriveFolderPicker = ({
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
                   {error}
-                  {(error.includes('Permission denied') || error.includes('expired') || error.includes('refresh failed')) && (
+                  {(error.includes('Permission denied') || error.includes('expired') || error.includes('refresh failed') || error.includes('token')) && (
                     <div className="mt-2">
                       <Button 
                         variant="outline" 

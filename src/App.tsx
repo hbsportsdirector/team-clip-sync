@@ -23,33 +23,10 @@ const AuthRedirectHandler = () => {
         search: location.search 
       });
       
-      // Extract access_token from the URL if present (commonly found in hash fragment)
-      const hashParams = new URLSearchParams(location.hash.substring(1));
-      const accessToken = hashParams.get('access_token');
-      
-      if (accessToken) {
-        console.log("Found access_token in URL hash, might be a successful OAuth login");
-      }
-      
       // Handle the auth callback
       const handleAuthCallback = async () => {
         try {
           console.log("Processing auth redirect...");
-          
-          // Try to exchange the URL params for a session
-          if (location.hash && location.hash.includes('access_token')) {
-            console.log("Attempting to set session from URL hash...");
-            const { data, error } = await supabase.auth.setSession({
-              access_token: hashParams.get('access_token') || '',
-              refresh_token: hashParams.get('refresh_token') || '',
-            });
-            
-            if (error) {
-              console.error("Error setting session from URL params:", error);
-            } else if (data?.session) {
-              console.log("Successfully set session from URL params");
-            }
-          }
           
           // Check if we have a valid session after the redirect
           const { data, error } = await supabase.auth.getSession();

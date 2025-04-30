@@ -1,5 +1,5 @@
 
-import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
+import React, { createContext, useState, useContext, ReactNode, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { Session, User } from '@supabase/supabase-js';
@@ -35,6 +35,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [hasGoogleConnected, setHasGoogleConnected] = useState<boolean>(false);
   const [authError, setAuthError] = useState<string | null>(null);
   
+  // Check if the current user has Google Drive permissions
+  const checkGoogleDrivePermissions = useCallback((session: Session | null) => {
+    // Check if user has Google connected with Drive permissions
+    if (!session) {
+      console.log("No session for Google Drive check");
+      setHasGoogleConnected(false);
+      return false;
+    }
+    
+    const googleProvider = session.user?.app_metadata?.provider === 'google';
+    const hasToken = !!session.provider_token;
+    const isGoogleConnected = googleProvider && hasToken;
+    
+    console.log("Google Drive check:", {
+      googleProvider,
+      hasToken,
+      isGoogleConnected,
+      providerScopes: session.user?.app_metadata?.provider_scopes
+    });
+    
+    setHasGoogleConnected(isGoogleConnected);
+    return isGoogleConnected;
+  }, []);
+  
   useEffect(() => {
     console.log("Setting up auth state listener");
     
@@ -47,7 +71,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           hasProviderToken: !!session.provider_token,
           hasAccessToken: !!session.access_token,
           user: session.user?.email,
-          expires: session.expires_at ? new Date(session.expires_at * 1000).toISOString() : 'unknown'
+          expires: session.expires_at ? new Date(session.expires_at * 1000).toISOString() : 'unknown',
+          scopes: session.user?.app_metadata?.provider_scopes
         } : "No session");
         
         setAuthState({
@@ -57,26 +82,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           loading: false,
         });
         
-        // Check if user has Google connected - consider both provider and token
-        const googleProvider = session?.user?.app_metadata?.provider === 'google';
-        const hasToken = !!session?.provider_token;
-        const isGoogleConnected = googleProvider && hasToken;
-        
-        console.log("Google provider:", googleProvider, "Has token:", hasToken);
-        setHasGoogleConnected(isGoogleConnected);
-        console.log("Google connected:", isGoogleConnected);
+        // Check Google Drive permissions
+        const isGoogleConnected = checkGoogleDrivePermissions(session);
+        console.log("Google connected status:", isGoogleConnected);
         
         // Reset error on successful auth events
         if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
           setAuthError(null);
           if (session?.user) {
             toast.success(`Welcome, ${session.user.user_metadata.name || session.user.email}`);
+            
+            // If user signed in with Google but doesn't have a provider token
+            if (session.user?.app_metadata?.provider === 'google' && !session.provider_token) {
+              console.log("User signed in with Google but no provider token found");
+              toast.warning("Google Drive access not detected. You may need to reconnect with Google to access Drive features.");
+            }
           }
         }
         
         // Handle sign out
         if (event === 'SIGNED_OUT') {
           console.log("User signed out");
+          setHasGoogleConnected(false);
         }
       }
     );
@@ -93,14 +120,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         console.log("Session expires at:", session.expires_at ? 
           new Date(session.expires_at * 1000).toISOString() : 'unknown');
         
-        // Check if session is from Google
-        const googleProvider = session.user?.app_metadata?.provider === 'google';
-        const hasToken = !!session.provider_token;
-        const isGoogleConnected = googleProvider && hasToken;
-        
-        console.log("Google provider:", googleProvider, "Has token:", hasToken);
-        setHasGoogleConnected(isGoogleConnected);
-        console.log("Google connected status on load:", isGoogleConnected);
+        // Check Google Drive permissions
+        checkGoogleDrivePermissions(session);
       }
       
       if (error) {
@@ -117,7 +138,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [checkGoogleDrivePermissions]);
 
   const login = async (email: string, password: string) => {
     try {
@@ -172,7 +193,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       console.log("Current origin:", currentOrigin);
       
       // Always request the drive.file scope for Google Drive access
-      const { error, data } = await supabase.auth.signInWithOAuth({
+      // Using prompt=consent to force the consent screen every time to ensure Drive permission is granted
+      const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           scopes: 'https://www.googleapis.com/auth/drive.file',
@@ -191,7 +213,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         throw error;
       }
       
-      console.log("Google sign-in initiated successfully, redirecting to Google", data);
+      console.log("Google sign-in initiated successfully, redirecting to Google");
       toast.info("Connecting to Google and requesting Drive access...");
     } catch (error: any) {
       console.error('Google login error:', error);
@@ -230,6 +252,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       } else {
         console.log('No provider token in refreshed session');
         setAuthError("No Google token found after refresh");
+        
+        // If the user is authenticated with Google but no provider token,
+        // they likely need to re-authenticate with the correct scopes
+        if (data.session?.user?.app_metadata?.provider === 'google') {
+          console.log("User authenticated with Google but missing provider token. May need to re-auth.");
+        }
+        
         return null;
       }
     } catch (error: any) {
@@ -246,12 +275,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return null;
       }
 
-      // Check if the user is authenticated with Google
+      // Check if the user is authenticated with Google and has a provider token
       if (authState.session.provider_token) {
         console.log('Using existing provider token');
         return authState.session.provider_token;
       } else {
-        console.log('No Google provider token found, user might not be logged in with Google');
+        console.log('No Google provider token found');
+        
+        // If user is logged in with Google but missing token, try a refresh
+        if (authState.user?.app_metadata?.provider === 'google') {
+          console.log('User logged in with Google but missing provider token. Attempting refresh...');
+          return await refreshGoogleToken();
+        }
+        
         return null;
       }
     } catch (error: any) {
