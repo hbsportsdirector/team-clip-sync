@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { InfoIcon } from 'lucide-react';
+import { InfoIcon, AlertCircle } from 'lucide-react';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 
 const Login = () => {
@@ -15,14 +16,18 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { login, signUp, signInWithGoogle, isAuthenticated } = useAuth();
+  const { login, signUp, signInWithGoogle, isAuthenticated, loading, authError } = useAuth();
   const navigate = useNavigate();
 
-  React.useEffect(() => {
+  // Log auth state for debugging
+  useEffect(() => {
+    console.log("Login page - Auth state:", { isAuthenticated, loading, authError });
+    
     if (isAuthenticated) {
+      console.log("User is authenticated, navigating to home");
       navigate('/');
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, loading, navigate, authError]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,7 +37,7 @@ const Login = () => {
     try {
       await login(email, password);
     } catch (error) {
-      console.error(error);
+      console.error("Login submission error:", error);
     } finally {
       setIsLoading(false);
     }
@@ -46,7 +51,7 @@ const Login = () => {
     try {
       await signUp(email, password, name);
     } catch (error) {
-      console.error(error);
+      console.error("Signup submission error:", error);
     } finally {
       setIsLoading(false);
     }
@@ -55,10 +60,11 @@ const Login = () => {
   const handleGoogleLogin = async () => {
     setIsLoading(true);
     try {
+      console.log("Initiating Google login from Login page");
       await signInWithGoogle();
+      // Note: This won't execute immediately as signInWithGoogle redirects to Google
     } catch (error) {
-      console.error("Google login error:", error);
-      // Error is already handled in AuthContext
+      console.error("Google login submission error:", error);
     } finally {
       setIsLoading(false);
     }
@@ -79,6 +85,15 @@ const Login = () => {
               <AvatarFallback className="bg-team-primary text-white text-xl">TC</AvatarFallback>
             </Avatar>
           </div>
+          
+          {authError && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Authentication error: {authError}
+              </AlertDescription>
+            </Alert>
+          )}
           
           <Tabs defaultValue="login" className="w-full">
             <TabsList className="grid w-full grid-cols-2">

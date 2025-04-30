@@ -19,6 +19,7 @@ interface AuthContextType extends AuthState {
   getGoogleAccessToken: () => Promise<string | null>;
   hasGoogleConnected: boolean;
   refreshGoogleToken: () => Promise<string | null>;
+  authError: string | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -32,11 +33,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   });
   
   const [hasGoogleConnected, setHasGoogleConnected] = useState<boolean>(false);
+  const [authError, setAuthError] = useState<string | null>(null);
   
   useEffect(() => {
+    console.log("Setting up auth state listener");
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
+      (event, session) => {
+        console.log("Auth state change event:", event, "Session exists:", !!session);
+        
         setAuthState({
           isAuthenticated: !!session,
           user: session?.user ?? null,
@@ -46,11 +51,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         
         // Check if user has Google connected
         setHasGoogleConnected(!!session?.provider_token);
+        
+        // Reset error on successful auth events
+        if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
+          setAuthError(null);
+        }
       }
     );
 
     // Check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    console.log("Checking for existing session");
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      console.log("Existing session check result:", !!session, "Error:", error);
+      
+      if (error) {
+        console.error("Session retrieval error:", error);
+        setAuthError(error.message);
+      }
+      
       setAuthState({
         isAuthenticated: !!session,
         user: session?.user ?? null,
@@ -67,6 +85,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const login = async (email: string, password: string) => {
     try {
+      setAuthError(null);
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -76,6 +95,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       toast.success('Successfully logged in');
     } catch (error: any) {
       console.error('Login error:', error);
+      setAuthError(error.message);
       toast.error(error.message || 'Failed to log in');
       throw error;
     }
@@ -83,6 +103,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signUp = async (email: string, password: string, name: string) => {
     try {
+      setAuthError(null);
       const { error } = await supabase.auth.signUp({
         email,
         password,
@@ -97,6 +118,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       toast.success('Registration successful. Please check your email for verification.');
     } catch (error: any) {
       console.error('Sign up error:', error);
+      setAuthError(error.message);
       toast.error(error.message || 'Failed to sign up');
       throw error;
     }
@@ -104,7 +126,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   
   const signInWithGoogle = async () => {
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
+      setAuthError(null);
+      console.log("Starting Google sign-in process");
+      
+      const { error, data } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           scopes: 'https://www.googleapis.com/auth/drive.file',
@@ -113,22 +138,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       });
       
       if (error) {
+        console.error("Google sign-in error:", error);
+        setAuthError(error.message);
         toast.error(error.message || 'Failed to log in with Google');
         throw error;
       }
+      
+      console.log("Google sign-in initiated successfully, redirecting to Google", data);
     } catch (error: any) {
       console.error('Google login error:', error);
+      setAuthError(error.message);
       throw error;
     }
   };
 
   const refreshGoogleToken = async (): Promise<string | null> => {
     try {
+      setAuthError(null);
+      console.log("Attempting to refresh session");
       // Attempt to refresh the session
       const { data, error } = await supabase.auth.refreshSession();
       
       if (error) {
         console.error('Error refreshing session:', error);
+        setAuthError(error.message);
         return null;
       }
       
@@ -137,10 +170,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return data.session.provider_token;
       } else {
         console.log('No provider token in refreshed session');
+        setAuthError("No Google token found after refresh");
         return null;
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error during token refresh:', error);
+      setAuthError(error.message);
       return null;
     }
   };
@@ -148,6 +183,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const getGoogleAccessToken = async (): Promise<string | null> => {
     try {
       if (!authState.session) {
+        console.log("No session available for Google access token");
         return null;
       }
 
@@ -159,14 +195,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         console.log('No Google provider token found, user might not be logged in with Google');
         return null;
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error getting Google access token:', error);
+      setAuthError(error.message);
       return null;
     }
   };
 
   const logout = async () => {
     try {
+      setAuthError(null);
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
       
@@ -180,6 +218,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       toast.info('Logged out');
     } catch (error: any) {
       console.error('Logout error:', error);
+      setAuthError(error.message);
       toast.error(error.message || 'Failed to log out');
     }
   };
@@ -195,6 +234,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         getGoogleAccessToken,
         hasGoogleConnected,
         refreshGoogleToken,
+        authError,
       }}
     >
       {children}
