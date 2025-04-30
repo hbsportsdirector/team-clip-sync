@@ -1,3 +1,4 @@
+
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -15,7 +16,7 @@ interface DbPlayer {
   id: string;
   name: string;
   drive_folder: string;
-  folder_name?: string; // This field isn't in the database schema yet
+  folder_name?: string; // This field is now in the database schema
   user_id: string;
 }
 
@@ -57,11 +58,10 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
           throw error;
         }
         
-        const mappedPlayers: Player[] = (data as any[]).map(player => ({
+        const mappedPlayers: Player[] = (data as DbPlayer[]).map(player => ({
           id: player.id,
           name: player.name,
           driveFolder: player.drive_folder,
-          // Handle the folder_name property safely since it might not exist in the database yet
           folderName: player.folder_name || null,
           selected: false
         }));
@@ -85,7 +85,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     }
     
     try {
-      // Create insert data object without folder_name if it's not provided
+      // Create insert data object with folder_name if it's provided
       const insertData: any = { 
         name, 
         drive_folder: driveFolder,
@@ -178,7 +178,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     }
     
     try {
-      // Update with just drive_folder as the folder_name column might not exist yet
+      // Update with folder_name now that the column exists
       const updateData: any = { drive_folder: folderId };
       
       // Only include folder_name in the update if it's provided
