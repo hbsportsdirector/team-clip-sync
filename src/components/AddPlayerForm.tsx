@@ -26,7 +26,7 @@ const AddPlayerForm = () => {
   const [driveFolderName, setDriveFolderName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { addPlayer } = usePlayers();
-  const { hasGoogleConnected } = useAuth();
+  const { hasGoogleConnected, signInWithGoogle } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,6 +60,16 @@ const AddPlayerForm = () => {
   const handleFolderSelected = (folderId: string, folderName: string) => {
     setDriveFolder(folderId);
     setDriveFolderName(folderName);
+  };
+  
+  const handleConnectGoogle = async () => {
+    try {
+      await signInWithGoogle();
+      toast.info('Connecting to Google Drive...');
+    } catch (error) {
+      console.error('Error connecting to Google:', error);
+      toast.error('Failed to connect with Google');
+    }
   };
 
   return (
@@ -100,6 +110,14 @@ const AddPlayerForm = () => {
                   <AlertTriangle className="h-4 w-4 text-amber-500" />
                   <AlertDescription className="text-xs text-amber-700">
                     You're not connected with Google. Videos will be saved locally but not uploaded to Google Drive.
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={handleConnectGoogle}
+                      className="w-full mt-2 text-xs"
+                    >
+                      Connect with Google Drive
+                    </Button>
                   </AlertDescription>
                 </Alert>
               )}

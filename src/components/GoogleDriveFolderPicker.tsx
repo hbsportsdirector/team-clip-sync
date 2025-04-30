@@ -32,7 +32,7 @@ const GoogleDriveFolderPicker = ({
   const [folderPath, setFolderPath] = useState<Folder[]>([{ id: 'root', name: 'My Drive' }]);
   const [searchTerm, setSearchTerm] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const { getGoogleAccessToken, isAuthenticated, hasGoogleConnected, signInWithGoogle } = useAuth();
+  const { getGoogleAccessToken, isAuthenticated, hasGoogleConnected, signInWithGoogle, refreshGoogleToken } = useAuth();
 
   const fetchFolders = async (folderId: string = 'root') => {
     setLoading(true);
@@ -65,6 +65,17 @@ const GoogleDriveFolderPicker = ({
         if (response.status === 403) {
           setError(`Permission denied (403). Your Google account may not have the necessary permissions to access Drive folders. Try reconnecting your Google account.`);
           toast.error('Permission denied for Google Drive. Try reconnecting your Google account.');
+        } else if (response.status === 401) {
+          setError('Authentication token expired. Please try refreshing your session.');
+          
+          // Attempt to refresh the token
+          const refreshedToken = await refreshGoogleToken();
+          if (refreshedToken) {
+            toast.success('Token refreshed, trying again...');
+            // Wait a moment and try again
+            setTimeout(() => fetchFolders(folderId), 1000);
+            return;
+          }
         } else {
           setError(`API Error: ${response.status} ${response.statusText}`);
         }
@@ -177,6 +188,7 @@ const GoogleDriveFolderPicker = ({
         variant="outline"
         type="button"
         className="w-full"
+        disabled={!hasGoogleConnected}
       >
         {renderButtonContent()}
       </Button>
@@ -227,7 +239,7 @@ const GoogleDriveFolderPicker = ({
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
                   {error}
-                  {error.includes('Permission denied') && (
+                  {(error.includes('Permission denied') || error.includes('expired')) && (
                     <div className="mt-2">
                       <Button 
                         variant="outline" 

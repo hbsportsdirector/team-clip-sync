@@ -31,8 +31,10 @@ const ManagePlayersModal = () => {
   const handleConnectGoogle = async () => {
     try {
       await signInWithGoogle();
+      toast.info('Connecting to Google Drive...');
     } catch (error) {
       console.error("Error connecting to Google:", error);
+      toast.error('Failed to connect to Google');
     }
   };
 

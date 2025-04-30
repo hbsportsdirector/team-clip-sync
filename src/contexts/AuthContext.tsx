@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -57,8 +56,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           loading: false,
         });
         
-        // Check if user has Google connected
-        const isGoogleConnected = !!session?.provider_token;
+        // Check if user has Google connected - consider both provider and token
+        const googleProvider = session?.user?.app_metadata?.provider === 'google';
+        const hasToken = !!session?.provider_token;
+        const isGoogleConnected = googleProvider && hasToken;
+        
+        console.log("Google provider:", googleProvider, "Has token:", hasToken);
         setHasGoogleConnected(isGoogleConnected);
         console.log("Google connected:", isGoogleConnected);
         
@@ -88,6 +91,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         console.log("Has provider token:", !!session.provider_token);
         console.log("Session expires at:", session.expires_at ? 
           new Date(session.expires_at * 1000).toISOString() : 'unknown');
+        
+        // Check if session is from Google
+        const googleProvider = session.user?.app_metadata?.provider === 'google';
+        const hasToken = !!session.provider_token;
+        const isGoogleConnected = googleProvider && hasToken;
+        
+        console.log("Google provider:", googleProvider, "Has token:", hasToken);
+        setHasGoogleConnected(isGoogleConnected);
+        console.log("Google connected status on load:", isGoogleConnected);
       }
       
       if (error) {
@@ -101,9 +113,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         session: session,
         loading: false,
       });
-      
-      // Check if user has Google connected
-      setHasGoogleConnected(!!session?.provider_token);
     });
 
     return () => subscription.unsubscribe();
@@ -251,6 +260,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         loading: false,
       });
       
+      setHasGoogleConnected(false);
       toast.info('Logged out');
     } catch (error: any) {
       console.error('Logout error:', error);
