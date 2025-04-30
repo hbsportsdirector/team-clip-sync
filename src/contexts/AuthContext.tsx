@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useContext, ReactNode, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -180,22 +179,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setAuthError(null);
       console.log("Starting Google sign-in process with Drive scope");
       
-      // Get the correct redirect URL
-      const currentOrigin = window.location.origin;
-      console.log("Current origin:", currentOrigin);
+      // Simplified Google sign-in with consistent redirect URL
+      const redirectUrl = `${window.location.origin}/`;
+      console.log("Using fixed redirect URL:", redirectUrl);
       
-      // Use a single, consistent redirect URL to prevent issues
-      const redirectUrl = `${currentOrigin}/`;
-      console.log("Using redirect URL:", redirectUrl);
-      
-      // Always request the drive.file scope for Google Drive access
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           scopes: 'https://www.googleapis.com/auth/drive.file',
           redirectTo: redirectUrl,
           queryParams: {
-            // These params ensure we get a refresh token every time
             access_type: 'offline',
             prompt: 'consent',
           }

@@ -65,7 +65,14 @@ const Login = () => {
     try {
       console.log("Initiating Google login from Login page");
       await signInWithGoogle();
-      // This won't execute immediately as we're redirecting
+      
+      // We won't immediately redirect here as the OAuth flow will handle that
+      // This prevents race conditions with the redirect
+      
+      // Set a timeout to reset the button state if for some reason we're still on this page
+      setTimeout(() => {
+        setGoogleLoading(false);
+      }, 5000);
     } catch (error) {
       console.error("Google login submission error:", error);
       setGoogleLoading(false);

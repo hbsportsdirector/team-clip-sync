@@ -39,7 +39,7 @@ const AuthRedirectHandler = () => {
         } else {
           console.log("No active session found, user is not authenticated");
           // If we don't have a session and we're not on the login page, redirect to login
-          if (location.pathname !== '/login') {
+          if (location.pathname !== '/login' && location.pathname !== '/') {
             console.log("Redirecting to login page");
             navigate('/login', { replace: true });
           }
@@ -50,7 +50,7 @@ const AuthRedirectHandler = () => {
     };
     
     handleInitialAuthCheck();
-  }, []);
+  }, [location.pathname, navigate]);
   
   return null;
 };
