@@ -1,3 +1,4 @@
+
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -162,7 +163,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signInWithGoogle = async () => {
     try {
       setAuthError(null);
-      console.log("Starting Google sign-in process");
+      console.log("Starting Google sign-in process with Drive scope");
       
       // Log user's current URL to help with debugging redirect issues
       const currentUrl = window.location.href;
@@ -170,6 +171,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       console.log("Current URL:", currentUrl);
       console.log("Current origin:", currentOrigin);
       
+      // Always request the drive.file scope for Google Drive access
       const { error, data } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -190,6 +192,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
       
       console.log("Google sign-in initiated successfully, redirecting to Google", data);
+      toast.info("Connecting to Google and requesting Drive access...");
     } catch (error: any) {
       console.error('Google login error:', error);
       setAuthError(error.message);
@@ -212,6 +215,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       if (data.session?.provider_token) {
         console.log('Successfully refreshed Google token');
+        // Update the session state after refresh
+        setAuthState({
+          isAuthenticated: true,
+          user: data.session.user,
+          session: data.session,
+          loading: false,
+        });
+        
+        // Update Google connected status
+        setHasGoogleConnected(true);
+        
         return data.session.provider_token;
       } else {
         console.log('No provider token in refreshed session');

@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { usePlayers, Player } from '@/contexts/PlayerContext';
 import { Button } from '@/components/ui/button';
@@ -30,8 +31,11 @@ const ManagePlayersModal = () => {
 
   const handleConnectGoogle = async () => {
     try {
-      await signInWithGoogle();
+      // Close the modal before redirecting to prevent state issues on return
+      setOpen(false);
       toast.info('Connecting to Google Drive...');
+      await signInWithGoogle();
+      // The redirect will happen automatically
     } catch (error) {
       console.error("Error connecting to Google:", error);
       toast.error('Failed to connect to Google');
@@ -59,7 +63,7 @@ const ManagePlayersModal = () => {
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
               <div className="flex flex-col gap-2">
-                <p>Google Drive not connected. You need to connect your Google account to access Drive folders.</p>
+                <p>Google Drive not connected. You need to connect your Google account with Drive permissions.</p>
                 <Button 
                   variant="outline" 
                   size="sm" 

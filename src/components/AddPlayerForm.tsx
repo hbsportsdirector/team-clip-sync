@@ -64,8 +64,11 @@ const AddPlayerForm = () => {
   
   const handleConnectGoogle = async () => {
     try {
+      // Close the dialog to prevent state issues after redirect
+      setOpen(false);
       await signInWithGoogle();
       toast.info('Connecting to Google Drive...');
+      // The redirect happens automatically after this
     } catch (error) {
       console.error('Error connecting to Google:', error);
       toast.error('Failed to connect with Google');

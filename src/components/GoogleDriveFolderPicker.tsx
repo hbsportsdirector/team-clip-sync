@@ -75,6 +75,9 @@ const GoogleDriveFolderPicker = ({
             // Wait a moment and try again
             setTimeout(() => fetchFolders(folderId), 1000);
             return;
+          } else {
+            // If token refresh didn't work, try complete reauthentication
+            setError('Token refresh failed. Please reconnect with Google to grant Drive permissions.');
           }
         } else {
           setError(`API Error: ${response.status} ${response.statusText}`);
@@ -146,9 +149,10 @@ const GoogleDriveFolderPicker = ({
   // Handle Google reconnection
   const handleReconnectGoogle = async () => {
     try {
+      setIsOpen(false); // Close the dialog first
+      toast.info("Reconnecting to Google Drive...");
       await signInWithGoogle();
-      toast.success("Reconnecting to Google. Please try again after login.");
-      setIsOpen(false);
+      // The redirect will happen here, so we don't need to handle anything else
     } catch (error) {
       console.error("Error reconnecting to Google:", error);
       toast.error("Failed to reconnect to Google");
@@ -239,16 +243,16 @@ const GoogleDriveFolderPicker = ({
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
                   {error}
-                  {(error.includes('Permission denied') || error.includes('expired')) && (
+                  {(error.includes('Permission denied') || error.includes('expired') || error.includes('refresh failed')) && (
                     <div className="mt-2">
                       <Button 
                         variant="outline" 
                         size="sm" 
-                        className="flex items-center gap-2"
+                        className="flex items-center gap-2 w-full"
                         onClick={handleReconnectGoogle}
                       >
                         <RefreshCcw className="h-4 w-4" />
-                        Reconnect Google Account
+                        Reconnect Google Account with Drive Access
                       </Button>
                     </div>
                   )}
