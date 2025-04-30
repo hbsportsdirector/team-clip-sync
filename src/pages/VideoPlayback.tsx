@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { InfoIcon } from 'lucide-react';
+import { InfoIcon, AlertTriangle } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import VideoPlayer from '@/components/VideoPlayer';
@@ -15,7 +15,7 @@ import { useAuth } from '@/contexts/AuthContext';
 
 const VideoPlayback = () => {
   const [selectedVideo, setSelectedVideo] = useState<{blob: Blob, name: string} | null>(null);
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, hasGoogleConnected } = useAuth();
   const navigate = useNavigate();
 
   React.useEffect(() => {
@@ -49,6 +49,22 @@ const VideoPlayback = () => {
       </header>
 
       <main className="container max-w-md px-5 py-6">
+        {!hasGoogleConnected && (
+          <Alert className="bg-amber-50 border-amber-200 mb-4">
+            <AlertTriangle className="h-4 w-4 text-amber-500" />
+            <AlertDescription className="text-sm text-amber-700">
+              You're not signed in with Google. Videos will be saved to your account but not uploaded to Google Drive.
+              <Button 
+                variant="link" 
+                className="text-amber-600 p-0 h-auto font-medium"
+                onClick={() => navigate('/login')}
+              >
+                Sign in with Google
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
+      
         <Tabs defaultValue="library" className="w-full">
           <TabsList className="grid w-full grid-cols-2 mb-6 rounded-lg bg-secondary p-1">
             <TabsTrigger value="library" className="rounded-md">Video Library</TabsTrigger>

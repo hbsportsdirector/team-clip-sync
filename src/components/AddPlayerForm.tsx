@@ -14,9 +14,10 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Loader2 } from 'lucide-react';
+import { Loader2, AlertTriangle } from 'lucide-react';
 import GoogleDriveFolderPicker from './GoogleDriveFolderPicker';
 import { useAuth } from '@/contexts/AuthContext';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const AddPlayerForm = () => {
   const [open, setOpen] = useState(false);
@@ -25,7 +26,7 @@ const AddPlayerForm = () => {
   const [driveFolderName, setDriveFolderName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { addPlayer } = usePlayers();
-  const { getGoogleAccessToken } = useAuth();
+  const { hasGoogleConnected } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,7 +37,7 @@ const AddPlayerForm = () => {
     }
 
     // In a real app, we would validate the folder ID
-    const folderValue = driveFolder.trim() || `mock-folder-${Date.now()}`;
+    const folderValue = driveFolder.trim() || '';
     
     setIsSubmitting(true);
     try {
@@ -47,13 +48,10 @@ const AddPlayerForm = () => {
       setOpen(false);
       
       // Show success toast with a different message if a real folder was selected
-      if (driveFolder.trim()) {
-        toast.success(`Player ${name} added with Google Drive folder`);
-      } else {
-        toast.success(`Player ${name} added`);
-      }
+      toast.success(`Player ${name} added${folderValue ? ' with Google Drive folder' : ''}`);
     } catch (error) {
       console.error('Error adding player:', error);
+      toast.error('Failed to add player');
     } finally {
       setIsSubmitting(false);
     }
@@ -97,6 +95,15 @@ const AddPlayerForm = () => {
             <div className="grid gap-2">
               <Label htmlFor="folder">Google Drive Folder</Label>
               
+              {!hasGoogleConnected && (
+                <Alert className="bg-amber-50 border-amber-200 mb-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-500" />
+                  <AlertDescription className="text-xs text-amber-700">
+                    You're not connected with Google. Videos will be saved locally but not uploaded to Google Drive.
+                  </AlertDescription>
+                </Alert>
+              )}
+              
               <GoogleDriveFolderPicker 
                 onSelect={handleFolderSelected}
                 selectedFolderId={driveFolder}
@@ -110,7 +117,7 @@ const AddPlayerForm = () => {
               
               {!driveFolder && (
                 <p className="text-xs text-muted-foreground">
-                  If no folder is selected, a mock folder ID will be used
+                  If no folder is selected, videos will be saved to your account only
                 </p>
               )}
             </div>

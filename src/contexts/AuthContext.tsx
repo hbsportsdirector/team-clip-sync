@@ -17,6 +17,7 @@ interface AuthContextType extends AuthState {
   signInWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
   getGoogleAccessToken: () => Promise<string | null>;
+  hasGoogleConnected: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -29,6 +30,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     loading: true,
   });
   
+  const [hasGoogleConnected, setHasGoogleConnected] = useState<boolean>(false);
+  
   useEffect(() => {
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -39,6 +42,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           session: session,
           loading: false,
         });
+        
+        // Check if user has Google connected
+        setHasGoogleConnected(!!session?.provider_token);
       }
     );
 
@@ -50,6 +56,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         session: session,
         loading: false,
       });
+      
+      // Check if user has Google connected
+      setHasGoogleConnected(!!session?.provider_token);
     });
 
     return () => subscription.unsubscribe();
@@ -97,8 +106,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          scopes: 'https://www.googleapis.com/auth/drive.metadata.readonly',
-          redirectTo: `${window.location.origin}/login`,
+          scopes: 'https://www.googleapis.com/auth/drive.file',
+          redirectTo: `${window.location.origin}/`,
         },
       });
       
@@ -115,7 +124,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const getGoogleAccessToken = async (): Promise<string | null> => {
     try {
       if (!authState.session) {
-        toast.error('You must be logged in to access Google Drive');
         return null;
       }
 
@@ -160,6 +168,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         signInWithGoogle,
         logout,
         getGoogleAccessToken,
+        hasGoogleConnected,
       }}
     >
       {children}

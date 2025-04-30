@@ -4,8 +4,9 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
-import { Loader2, FolderIcon, ChevronRight } from 'lucide-react';
+import { Loader2, FolderIcon, ChevronRight, GoogleIcon } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { getGoogleDriveFolderLink } from '@/services/driveService';
 
 interface Folder {
   id: string;
@@ -29,7 +30,7 @@ const GoogleDriveFolderPicker = ({
   const [currentFolderId, setCurrentFolderId] = useState<string>('root');
   const [folderPath, setFolderPath] = useState<Folder[]>([{ id: 'root', name: 'My Drive' }]);
   const [searchTerm, setSearchTerm] = useState('');
-  const { getGoogleAccessToken } = useAuth();
+  const { getGoogleAccessToken, isAuthenticated } = useAuth();
 
   const fetchFolders = async (folderId: string = 'root') => {
     setLoading(true);
@@ -81,6 +82,21 @@ const GoogleDriveFolderPicker = ({
     setIsOpen(false);
   };
 
+  const handleOpenDialog = async () => {
+    if (!isAuthenticated) {
+      toast.error("Please login with Google to access Drive folders");
+      return;
+    }
+    
+    const accessToken = await getGoogleAccessToken();
+    if (!accessToken) {
+      toast.error("Google Drive access not available. Please sign in with Google again.");
+      return;
+    }
+    
+    setIsOpen(true);
+  };
+
   useEffect(() => {
     if (isOpen) {
       fetchFolders(currentFolderId);
@@ -90,17 +106,45 @@ const GoogleDriveFolderPicker = ({
   const filteredFolders = folders.filter(folder => 
     folder.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
+  
+  const renderButtonContent = () => {
+    if (selectedFolderId) {
+      return 'Change Folder';
+    } else {
+      return (
+        <>
+          <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 0C5.372 0 0 5.373 0 12s5.372 12 12 12 12-5.373 12-12S18.628 0 12 0zm.14 19.018c-3.868 0-7-3.14-7-7.018 0-3.878 3.132-7.018 7-7.018 1.89 0 3.47.697 4.682 1.829l-1.974 1.978v-.004c-.735-.702-1.667-1.062-2.708-1.062-2.31 0-4.187 1.956-4.187 4.273 0 2.315 1.877 4.277 4.187 4.277 2.096 0 3.522-1.202 3.816-2.852H12.14v-2.737h6.585c.088.47.135.96.135 1.474 0 4.01-2.677 6.86-6.72 6.86z" fill="currentColor"/>
+          </svg>
+          {buttonLabel}
+        </>
+      );
+    }
+  };
 
   return (
     <>
       <Button 
-        onClick={() => setIsOpen(true)}
+        onClick={handleOpenDialog}
         variant="outline"
         type="button"
         className="w-full"
       >
-        {selectedFolderId ? 'Change Folder' : buttonLabel}
+        {renderButtonContent()}
       </Button>
+
+      {selectedFolderId && (
+        <div className="text-sm text-muted-foreground mt-1">
+          <a 
+            href={getGoogleDriveFolderLink(selectedFolderId)} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="hover:underline text-blue-500"
+          >
+            View folder in Google Drive
+          </a>
+        </div>
+      )}
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogContent className="sm:max-w-md">
