@@ -10,8 +10,9 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogClose,
 } from '@/components/ui/dialog';
-import { X, FolderIcon } from 'lucide-react';
+import { X, FolderIcon, AlertCircle } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import GoogleDriveFolderPicker from './GoogleDriveFolderPicker';
 import {
@@ -19,10 +20,12 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import { useAuth } from '@/contexts/AuthContext';
 
 const ManagePlayersModal = () => {
   const [open, setOpen] = useState(false);
   const { players, removePlayer, updatePlayerDriveFolder } = usePlayers();
+  const { hasGoogleConnected } = useAuth();
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -39,6 +42,16 @@ const ManagePlayersModal = () => {
             View, update and delete existing players
           </DialogDescription>
         </DialogHeader>
+        
+        {!hasGoogleConnected && (
+          <div className="bg-amber-50 border border-amber-200 rounded-md p-3 mb-4 flex items-start">
+            <AlertCircle className="h-5 w-5 text-amber-500 mr-2 flex-shrink-0 mt-0.5" />
+            <div className="text-sm text-amber-800">
+              <p className="font-medium">Google Drive not connected</p>
+              <p>Sign in with Google to access your Drive folders.</p>
+            </div>
+          </div>
+        )}
         
         <div className="max-h-[50vh] overflow-y-auto py-4">
           {players.length > 0 ? (
@@ -60,9 +73,11 @@ const ManagePlayersModal = () => {
         </div>
         
         <div className="flex justify-end">
-          <Button variant="outline" onClick={() => setOpen(false)}>
-            Close
-          </Button>
+          <DialogClose asChild>
+            <Button variant="outline">
+              Close
+            </Button>
+          </DialogClose>
         </div>
       </DialogContent>
     </Dialog>
@@ -76,6 +91,8 @@ interface PlayerManageItemProps {
 }
 
 const PlayerManageItem = ({ player, onRemove, onUpdateFolder }: PlayerManageItemProps) => {
+  const [folderPopoverOpen, setFolderPopoverOpen] = useState(false);
+  
   return (
     <div className="flex flex-col p-2 rounded-md border">
       <div className="flex items-center justify-between">
@@ -93,7 +110,7 @@ const PlayerManageItem = ({ player, onRemove, onUpdateFolder }: PlayerManageItem
       </div>
       
       <div className="mt-2 text-xs text-muted-foreground">
-        <Popover>
+        <Popover open={folderPopoverOpen} onOpenChange={setFolderPopoverOpen}>
           <PopoverTrigger asChild>
             <Button variant="outline" size="sm" className="w-full text-left flex justify-between">
               <span className="truncate flex-grow">
@@ -105,7 +122,10 @@ const PlayerManageItem = ({ player, onRemove, onUpdateFolder }: PlayerManageItem
           <PopoverContent className="w-80 p-0">
             <div className="p-4">
               <GoogleDriveFolderPicker
-                onSelect={(folderId, folderName) => onUpdateFolder(folderId, folderName)}
+                onSelect={(folderId, folderName) => {
+                  onUpdateFolder(folderId, folderName);
+                  setFolderPopoverOpen(false);
+                }}
                 selectedFolderId={player.driveFolder}
                 buttonLabel="Select Folder"
               />

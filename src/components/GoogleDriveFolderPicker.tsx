@@ -1,11 +1,13 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
-import { Loader2, FolderIcon, ChevronRight } from 'lucide-react';
+import { Loader2, FolderIcon, ChevronRight, AlertCircle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { getGoogleDriveFolderLink } from '@/services/driveService';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface Folder {
   id: string;
@@ -29,34 +31,56 @@ const GoogleDriveFolderPicker = ({
   const [currentFolderId, setCurrentFolderId] = useState<string>('root');
   const [folderPath, setFolderPath] = useState<Folder[]>([{ id: 'root', name: 'My Drive' }]);
   const [searchTerm, setSearchTerm] = useState('');
-  const { getGoogleAccessToken, isAuthenticated } = useAuth();
+  const [error, setError] = useState<string | null>(null);
+  const { getGoogleAccessToken, isAuthenticated, hasGoogleConnected } = useAuth();
 
   const fetchFolders = async (folderId: string = 'root') => {
     setLoading(true);
+    setError(null);
+    
     try {
       const accessToken = await getGoogleAccessToken();
       
       if (!accessToken) {
+        setError('No Google access token available. Please ensure you are logged in with Google.');
         toast.error('Unable to access Google Drive. Please login with Google.');
-        setIsOpen(false);
         return;
       }
 
+      console.log('Fetching folders with token', accessToken.substring(0, 10) + '...');
+      
       const query = encodeURIComponent(`mimeType='application/vnd.google-apps.folder' and '${folderId}' in parents and trashed=false`);
       const url = `https://www.googleapis.com/drive/v3/files?q=${query}&fields=files(id,name)`;
+      
+      console.log('Fetching from URL:', url);
       
       const response = await fetch(url, {
         headers: { Authorization: `Bearer ${accessToken}` }
       });
       
       if (!response.ok) {
-        throw new Error('Failed to fetch folders');
+        const errorData = await response.text();
+        console.error('Google Drive API error:', errorData);
+        setError(`API Error: ${response.status} ${response.statusText}`);
+        throw new Error(`Failed to fetch folders: ${response.status} ${response.statusText}`);
       }
       
       const data = await response.json();
+      console.log('Folders fetched:', data);
+      
+      if (!data.files || !Array.isArray(data.files)) {
+        setError('Invalid response format from Google Drive API');
+        return;
+      }
+      
       setFolders(data.files || []);
+      
+      if (data.files.length === 0) {
+        console.log('No folders found in this location');
+      }
     } catch (error) {
       console.error('Error fetching folders:', error);
+      setError(error instanceof Error ? error.message : 'An unknown error occurred');
       toast.error('Failed to load Google Drive folders');
     } finally {
       setLoading(false);
@@ -83,7 +107,12 @@ const GoogleDriveFolderPicker = ({
 
   const handleOpenDialog = async () => {
     if (!isAuthenticated) {
-      toast.error("Please login with Google to access Drive folders");
+      toast.error("Please login to access Drive folders");
+      return;
+    }
+    
+    if (!hasGoogleConnected) {
+      toast.error("Google Drive access not available. Please sign in with Google.");
       return;
     }
     
@@ -93,11 +122,13 @@ const GoogleDriveFolderPicker = ({
       return;
     }
     
+    console.log("Opening folder picker dialog");
     setIsOpen(true);
   };
 
   useEffect(() => {
     if (isOpen) {
+      console.log("Dialog opened, fetching folders");
       fetchFolders(currentFolderId);
     }
   }, [isOpen]);
@@ -173,6 +204,15 @@ const GoogleDriveFolderPicker = ({
               ))}
             </div>
             
+            {error && (
+              <Alert variant="destructive" className="mb-2">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  {error}
+                </AlertDescription>
+              </Alert>
+            )}
+            
             <div className="max-h-[50vh] overflow-y-auto border rounded-md">
               {loading ? (
                 <div className="flex items-center justify-center p-8">
@@ -204,9 +244,22 @@ const GoogleDriveFolderPicker = ({
                 </div>
               ) : (
                 <div className="p-4 text-center text-muted-foreground">
-                  No folders found
+                  {loading ? 'Loading folders...' : 'No folders found'}
                 </div>
               )}
+            </div>
+            
+            <div className="flex justify-between items-center border-t pt-4">
+              <div className="text-sm text-muted-foreground">
+                {!hasGoogleConnected && (
+                  <span className="text-amber-500 flex items-center gap-1">
+                    <AlertCircle className="h-4 w-4" /> Not connected to Google
+                  </span>
+                )}
+              </div>
+              <Button variant="outline" onClick={() => setIsOpen(false)}>
+                Cancel
+              </Button>
             </div>
           </div>
         </DialogContent>
