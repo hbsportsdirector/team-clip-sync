@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,6 +8,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { InfoIcon } from 'lucide-react';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -74,23 +74,10 @@ const Login = () => {
         
         <CardContent>
           <div className="flex flex-col items-center space-y-6 mb-4">
-            <div className="w-20 h-20 rounded-full bg-team-primary flex items-center justify-center">
-              <svg 
-                width="42" 
-                height="42" 
-                viewBox="0 0 24 24" 
-                fill="none" 
-                stroke="currentColor" 
-                strokeWidth="2" 
-                strokeLinecap="round" 
-                strokeLinejoin="round" 
-                className="text-white"
-              >
-                <path d="M23 7v10a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h18a2 2 0 0 1 2 2z" />
-                <path d="m16 2-4 4-4-4" />
-                <rect x="7" y="9" width="10" height="6" rx="1" />
-              </svg>
-            </div>
+            <Avatar className="w-24 h-24">
+              <AvatarImage src="/lovable-uploads/87441f10-e704-4b67-bc41-27818ecb3dfe.png" alt="TeamClipSync Logo" />
+              <AvatarFallback className="bg-team-primary text-white text-xl">TC</AvatarFallback>
+            </Avatar>
           </div>
           
           <Tabs defaultValue="login" className="w-full">
