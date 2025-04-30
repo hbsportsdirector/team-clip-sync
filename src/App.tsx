@@ -8,10 +8,12 @@ import VideoPlayback from './pages/VideoPlayback';
 import { AuthProvider } from './contexts/AuthContext';
 import { PlayerProvider } from './contexts/PlayerContext';
 import { Toaster } from 'sonner';
+import { supabase } from './integrations/supabase/client';
 
 // Auth redirect handler component
 const AuthRedirectHandler = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   
   useEffect(() => {
     // Check if this is a redirect from OAuth (will have hash or query params)
@@ -20,8 +22,34 @@ const AuthRedirectHandler = () => {
         hash: location.hash,
         search: location.search 
       });
+      
+      // Handle the auth callback
+      const handleAuthCallback = async () => {
+        try {
+          console.log("Processing auth redirect...");
+          const { data, error } = await supabase.auth.getSession();
+          
+          if (error) {
+            console.error("Error processing auth callback:", error);
+            throw error;
+          }
+          
+          if (data?.session) {
+            console.log("Authentication successful, navigating to home");
+            navigate('/', { replace: true });
+          } else {
+            console.log("No session found after redirect, staying on login page");
+            navigate('/login', { replace: true });
+          }
+        } catch (error) {
+          console.error("Failed to process authentication redirect:", error);
+          navigate('/login', { replace: true });
+        }
+      };
+      
+      handleAuthCallback();
     }
-  }, [location]);
+  }, [location, navigate]);
   
   return null;
 };
