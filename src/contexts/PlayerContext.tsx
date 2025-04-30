@@ -15,7 +15,7 @@ interface DbPlayer {
   id: string;
   name: string;
   drive_folder: string;
-  folder_name?: string; // Added this field to match the database schema
+  folder_name?: string; // This field isn't in the database schema yet
   user_id: string;
 }
 
@@ -61,7 +61,8 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
           id: player.id,
           name: player.name,
           driveFolder: player.drive_folder,
-          folderName: player.folder_name,
+          // Handle the folder_name property safely since it might not exist in the database yet
+          folderName: player.folder_name || null,
           selected: false
         }));
         
@@ -172,12 +173,12 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     }
     
     try {
+      // Update with just drive_folder as the folder_name column might not exist yet
+      const updateData = { drive_folder: folderId };
+      
       const { error } = await supabase
         .from('players')
-        .update({ 
-          drive_folder: folderId,
-          folder_name: folderName
-        })
+        .update(updateData)
         .eq('id', id);
         
       if (error) {
