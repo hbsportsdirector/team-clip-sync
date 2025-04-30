@@ -85,16 +85,21 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     }
     
     try {
+      // Create insert data object without folder_name if it's not provided
+      const insertData: any = { 
+        name, 
+        drive_folder: driveFolder,
+        user_id: user.id 
+      };
+      
+      // Only include folder_name if it's provided
+      if (folderName) {
+        insertData.folder_name = folderName;
+      }
+      
       const { data, error } = await supabase
         .from('players')
-        .insert([
-          { 
-            name, 
-            drive_folder: driveFolder,
-            folder_name: folderName,
-            user_id: user.id 
-          }
-        ])
+        .insert([insertData])
         .select()
         .single();
         
@@ -106,7 +111,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         id: data.id,
         name: data.name,
         driveFolder: data.drive_folder,
-        folderName: data.folder_name,
+        folderName: data.folder_name || null,
         selected: false,
       };
       
@@ -174,7 +179,12 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     
     try {
       // Update with just drive_folder as the folder_name column might not exist yet
-      const updateData = { drive_folder: folderId };
+      const updateData: any = { drive_folder: folderId };
+      
+      // Only include folder_name in the update if it's provided
+      if (folderName) {
+        updateData.folder_name = folderName;
+      }
       
       const { error } = await supabase
         .from('players')
@@ -188,7 +198,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
       setPlayers((prevPlayers) =>
         prevPlayers.map((player) =>
           player.id === id
-            ? { ...player, driveFolder: folderId, folderName: folderName }
+            ? { ...player, driveFolder: folderId, folderName: folderName || null }
             : player
         )
       );
