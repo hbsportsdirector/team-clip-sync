@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -58,7 +57,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
           throw error;
         }
         
-        const mappedPlayers: Player[] = (data as DbPlayer[]).map(player => ({
+        const mappedPlayers: Player[] = (data as any[]).map(player => ({
           id: player.id,
           name: player.name,
           driveFolder: player.drive_folder,
@@ -112,7 +111,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         id: data.id,
         name: data.name,
         driveFolder: data.drive_folder,
-        folderName: data.folder_name !== undefined ? data.folder_name : null,
+        folderName: data.folder_name || null,
         selected: false,
       };
       
