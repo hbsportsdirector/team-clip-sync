@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { usePlayers, Player } from '@/contexts/PlayerContext';
 import { Button } from '@/components/ui/button';
@@ -22,6 +21,7 @@ import {
 } from '@/components/ui/popover';
 import { useAuth } from '@/contexts/AuthContext';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { toast } from 'sonner';
 
 const ManagePlayersModal = () => {
   const [open, setOpen] = useState(false);
