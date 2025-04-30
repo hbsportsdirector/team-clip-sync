@@ -261,7 +261,8 @@ const VideoPlayer = ({ videoSrc, onSnapshotCapture }: VideoPlayerProps) => {
           name: player.name,
           driveFolder: player.driveFolder
         })),
-        fileName
+        fileName,
+        'clip' // Added this fourth argument: fileType
       );
       
       toast.success('Clip uploaded successfully!');

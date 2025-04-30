@@ -1,4 +1,3 @@
-
 import React, { useRef, useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Play, StopCircle } from 'lucide-react';
@@ -122,7 +121,8 @@ const Camera = () => {
               name: player.name,
               driveFolder: player.driveFolder
             })),
-            fileName
+            fileName,
+            'recording' // Added this fourth argument: fileType
           );
           
           // Create a download link for testing

@@ -1,10 +1,9 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
-import { Loader2, FolderIcon, ChevronRight, GoogleIcon } from 'lucide-react';
+import { Loader2, FolderIcon, ChevronRight } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { getGoogleDriveFolderLink } from '@/services/driveService';
 
