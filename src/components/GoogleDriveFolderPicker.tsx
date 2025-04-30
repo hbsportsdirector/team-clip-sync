@@ -32,7 +32,13 @@ const GoogleDriveFolderPicker = ({
   const [folderPath, setFolderPath] = useState<Folder[]>([{ id: 'root', name: 'My Drive' }]);
   const [searchTerm, setSearchTerm] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const { getGoogleAccessToken, isAuthenticated, hasGoogleConnected, signInWithGoogle, refreshGoogleToken } = useAuth();
+  const { 
+    getGoogleAccessToken, 
+    isAuthenticated, 
+    hasGoogleConnected, 
+    reconnectGoogleWithDriveAccess,
+    refreshGoogleToken 
+  } = useAuth();
 
   const fetchFolders = async (folderId: string = 'root') => {
     setLoading(true);
@@ -132,12 +138,12 @@ const GoogleDriveFolderPicker = ({
     setIsOpen(true);
   };
 
-  // Handle Google reconnection
+  // Handle Google reconnection using the new reconnect function
   const handleReconnectGoogle = async () => {
     try {
       setIsOpen(false); // Close the dialog first
       toast.info("Reconnecting to Google Drive...");
-      await signInWithGoogle();
+      await reconnectGoogleWithDriveAccess();
       // The redirect will happen here
     } catch (error) {
       console.error("Error reconnecting to Google:", error);

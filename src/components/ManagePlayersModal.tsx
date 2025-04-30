@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { usePlayers, Player } from '@/contexts/PlayerContext';
 import { Button } from '@/components/ui/button';
@@ -27,14 +26,14 @@ import { toast } from 'sonner';
 const ManagePlayersModal = () => {
   const [open, setOpen] = useState(false);
   const { players, removePlayer, updatePlayerDriveFolder } = usePlayers();
-  const { hasGoogleConnected, signInWithGoogle } = useAuth();
+  const { hasGoogleConnected, reconnectGoogleWithDriveAccess } = useAuth();
 
   const handleConnectGoogle = async () => {
     try {
       // Close the modal before redirecting to prevent state issues on return
       setOpen(false);
       toast.info('Connecting to Google Drive...');
-      await signInWithGoogle();
+      await reconnectGoogleWithDriveAccess();
       // The redirect will happen automatically
     } catch (error) {
       console.error("Error connecting to Google:", error);

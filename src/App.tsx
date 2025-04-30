@@ -10,7 +10,7 @@ import { PlayerProvider } from './contexts/PlayerContext';
 import { Toaster } from 'sonner';
 import { supabase } from './integrations/supabase/client';
 
-// Auth redirect handler component
+// Auth redirect handler component with improved logic to prevent redirect loops
 const AuthRedirectHandler = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -32,7 +32,20 @@ const AuthRedirectHandler = () => {
         const isLoginPage = location.pathname === '/login';
         const isHomePage = location.pathname === '/';
         
-        console.log("Auth state:", { isAuthenticated, currentPath: location.pathname });
+        console.log("Auth state:", { 
+          isAuthenticated,
+          currentPath: location.pathname,
+          hasActiveSession: !!data.session,
+        });
+        
+        // If auth state change is due to OAuth callback, don't interfere with the flow
+        const isAuthCallback = location.hash && 
+          (location.hash.includes('access_token') || location.hash.includes('error'));
+        
+        if (isAuthCallback) {
+          console.log("Detected OAuth callback, not redirecting");
+          return;
+        }
         
         if (isAuthenticated) {
           // Check for saved redirect path from OAuth flow
@@ -63,12 +76,27 @@ const AuthRedirectHandler = () => {
     
     // Call the auth check function
     handleInitialAuthCheck();
-  }, [location.pathname, navigate]);
+  }, [location.pathname, navigate, location.hash]);
   
   return null;
 };
 
 function App() {
+  // Add mobile webapp meta tag
+  useEffect(() => {
+    // Fix the meta tag for mobile web app capability
+    const existingAppleTag = document.querySelector('meta[name="apple-mobile-web-app-capable"]');
+    if (existingAppleTag) {
+      // Add the standard mobile-web-app-capable meta tag
+      if (!document.querySelector('meta[name="mobile-web-app-capable"]')) {
+        const mobileWebAppMeta = document.createElement('meta');
+        mobileWebAppMeta.setAttribute('name', 'mobile-web-app-capable');
+        mobileWebAppMeta.setAttribute('content', 'yes');
+        document.head.appendChild(mobileWebAppMeta);
+      }
+    }
+  }, []);
+
   return (
     <Router>
       <AuthProvider>

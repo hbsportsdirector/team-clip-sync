@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useContext, ReactNode, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -22,6 +21,7 @@ interface AuthContextType extends AuthState {
   refreshGoogleToken: () => Promise<string | null>;
   authError: string | null;
   isProcessingAuth: boolean;
+  reconnectGoogleWithDriveAccess: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -39,7 +39,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [authError, setAuthError] = useState<string | null>(null);
   const [isProcessingAuth, setIsProcessingAuth] = useState<boolean>(false);
   
-  // Check if the current user has Google Drive permissions
+  // Check if the current user has Google Drive permissions - improved to properly validate scopes
   const checkGoogleDrivePermissions = useCallback((session: Session | null) => {
     // Check if user has Google connected with Drive permissions
     if (!session) {
@@ -48,30 +48,82 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return false;
     }
     
+    // Validate provider
     const googleProvider = session.user?.app_metadata?.provider === 'google';
+    
+    // Validate token exists
     const hasToken = !!session.provider_token;
     
-    // Check if the token has the required scope
+    // Validate proper scopes exist
     let hasCorrectScope = false;
     if (googleProvider && session.user?.app_metadata?.provider_scopes) {
       const scopes = session.user.app_metadata.provider_scopes;
+      console.log("Provider scopes:", scopes);
+      
+      // Check specifically for the Drive file scope
       hasCorrectScope = Array.isArray(scopes) && 
         scopes.includes('https://www.googleapis.com/auth/drive.file');
     }
     
     const isGoogleConnected = googleProvider && hasToken && hasCorrectScope;
     
-    console.log("Google Drive check:", {
+    console.log("Google Drive permission check:", {
       googleProvider,
       hasToken,
       hasCorrectScope,
       isGoogleConnected,
-      providerScopes: session.user?.app_metadata?.provider_scopes
+      providerScopes: session.user?.app_metadata?.provider_scopes || 'none',
+      tokenExpiry: session.expires_at ? new Date(session.expires_at * 1000).toISOString() : 'unknown'
     });
     
     setHasGoogleConnected(isGoogleConnected);
     return isGoogleConnected;
   }, []);
+  
+  // Function to reconnect Google with Drive access
+  const reconnectGoogleWithDriveAccess = async () => {
+    try {
+      setAuthError(null);
+      setIsProcessingAuth(true);
+      console.log("Initiating Google reconnection with Drive scope");
+      
+      // Save the current path before redirecting
+      const currentPath = window.location.pathname;
+      sessionStorage.setItem('redirect_after_auth', currentPath);
+      
+      // Define a consistent redirect URL
+      const redirectUrl = `${window.location.origin}/`;
+      console.log("Using redirect URL:", redirectUrl);
+      
+      // Explicitly request the Drive scope
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          scopes: 'https://www.googleapis.com/auth/drive.file',
+          redirectTo: redirectUrl,
+          queryParams: {
+            access_type: 'offline', // Request refresh token
+            prompt: 'consent',       // Always show consent screen
+          }
+        },
+      });
+      
+      if (error) {
+        console.error("Google reconnection error:", error);
+        setAuthError(error.message);
+        toast.error(error.message || 'Failed to reconnect with Google');
+        throw error;
+      }
+      
+      console.log("Google reconnection initiated successfully");
+    } catch (error: any) {
+      console.error('Google reconnection error:', error);
+      setAuthError(error.message);
+      setIsProcessingAuth(false);
+      throw error;
+    }
+    // Auth state change will reset processing state
+  };
   
   useEffect(() => {
     console.log("Setting up auth state listener");
@@ -103,8 +155,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         });
         
         // Check Google Drive permissions
-        const isGoogleConnected = checkGoogleDrivePermissions(session);
-        console.log("Google connected status:", isGoogleConnected);
+        if (session) {
+          const isGoogleConnected = checkGoogleDrivePermissions(session);
+          console.log("Google connected status:", isGoogleConnected);
+        }
         
         // Reset processing state when auth state changes
         setIsProcessingAuth(false);
@@ -153,6 +207,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => subscription.unsubscribe();
   }, [checkGoogleDrivePermissions]);
 
+  // Standard email/password login - unchanged
   const login = async (email: string, password: string) => {
     try {
       setAuthError(null);
@@ -176,6 +231,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  // Standard sign up function - unchanged
   const signUp = async (email: string, password: string, name: string) => {
     try {
       setAuthError(null);
@@ -204,6 +260,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
   
+  // Improved Google sign-in with clearer OAuth flow
   const signInWithGoogle = async () => {
     try {
       setAuthError(null);
@@ -220,14 +277,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const redirectUrl = `${window.location.origin}/`;
       console.log("Using redirect URL:", redirectUrl);
       
+      // Explicitly request the Drive file scope
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           scopes: 'https://www.googleapis.com/auth/drive.file',
           redirectTo: redirectUrl,
           queryParams: {
-            access_type: 'offline',
-            prompt: 'consent',
+            access_type: 'offline', // Request refresh token
+            prompt: 'consent',       // Always show consent screen
           }
         },
       });
@@ -249,6 +307,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // Don't reset processing state here - will be handled by onAuthStateChange
   };
 
+  // Improved token refresh that better handles the Drive scope
   const refreshGoogleToken = async (): Promise<string | null> => {
     try {
       setAuthError(null);
@@ -277,7 +336,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         });
         
         // Check if the token has Drive permissions
-        checkGoogleDrivePermissions(data.session);
+        const hasDriveAccess = checkGoogleDrivePermissions(data.session);
+        
+        if (!hasDriveAccess) {
+          console.log("Refreshed token doesn't have Drive permissions");
+          toast.warning("Your Google Drive permissions need to be refreshed. Please reconnect Google Drive.");
+        }
         
         return data.session.provider_token;
       } else {
@@ -287,7 +351,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         // they may need to re-authenticate with the correct scopes
         if (data.session?.user?.app_metadata?.provider === 'google') {
           console.log("User authenticated with Google but missing provider token. May need to re-auth.");
-          // Don't set an error here to avoid confusion
+          toast.warning("Your Google connection needs to be refreshed. Please reconnect Google Drive.");
         }
         
         return null;
@@ -301,6 +365,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  // Improved token getter with better error feedback
   const getGoogleAccessToken = async (): Promise<string | null> => {
     try {
       if (!authState.session) {
@@ -311,6 +376,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // Check if the user is authenticated with Google and has a provider token
       if (authState.session.provider_token) {
         console.log('Using existing provider token');
+        
+        // Let's verify if the token has Drive scope
+        const hasDriveScope = checkGoogleDrivePermissions(authState.session);
+        if (!hasDriveScope) {
+          console.log("Token doesn't have Drive permissions");
+          toast.warning("Your Google Drive permissions are missing. Please reconnect Google Drive.");
+        }
+        
         return authState.session.provider_token;
       } else {
         console.log('No Google provider token found');
@@ -318,6 +391,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         // If user is logged in with Google but missing token, try a refresh
         if (authState.user?.app_metadata?.provider === 'google') {
           console.log('User logged in with Google but missing provider token. Attempting refresh...');
+          toast.info("Attempting to refresh your Google credentials...");
           return await refreshGoogleToken();
         }
         
@@ -330,6 +404,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  // Standard logout function - unchanged
   const logout = async () => {
     try {
       setAuthError(null);
@@ -370,6 +445,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         refreshGoogleToken,
         authError,
         isProcessingAuth,
+        reconnectGoogleWithDriveAccess,
       }}
     >
       {children}
