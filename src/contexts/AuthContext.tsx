@@ -37,10 +37,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   
   useEffect(() => {
     console.log("Setting up auth state listener");
+    
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         console.log("Auth state change event:", event, "Session exists:", !!session);
+        console.log("Session details:", session ? {
+          provider: session.user?.app_metadata?.provider,
+          hasProviderToken: !!session.provider_token,
+          hasAccessToken: !!session.access_token,
+          user: session.user?.email
+        } : "No session");
         
         setAuthState({
           isAuthenticated: !!session,
@@ -50,11 +57,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         });
         
         // Check if user has Google connected
-        setHasGoogleConnected(!!session?.provider_token);
+        const isGoogleConnected = !!session?.provider_token;
+        setHasGoogleConnected(isGoogleConnected);
+        console.log("Google connected:", isGoogleConnected);
         
         // Reset error on successful auth events
         if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
           setAuthError(null);
+          if (session?.user) {
+            toast.success(`Welcome, ${session.user.user_metadata.name || session.user.email}`);
+          }
         }
       }
     );
@@ -63,6 +75,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     console.log("Checking for existing session");
     supabase.auth.getSession().then(({ data: { session }, error }) => {
       console.log("Existing session check result:", !!session, "Error:", error);
+      
+      if (session) {
+        console.log("Found session for user:", session.user?.email);
+        console.log("Provider:", session.user?.app_metadata?.provider);
+        console.log("Has provider token:", !!session.provider_token);
+      }
       
       if (error) {
         console.error("Session retrieval error:", error);
@@ -129,11 +147,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setAuthError(null);
       console.log("Starting Google sign-in process");
       
+      // Log user's current URL to help with debugging redirect issues
+      console.log("Current origin:", window.location.origin);
+      
       const { error, data } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           scopes: 'https://www.googleapis.com/auth/drive.file',
           redirectTo: `${window.location.origin}/`,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          }
         },
       });
       
