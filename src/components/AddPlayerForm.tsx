@@ -41,7 +41,7 @@ const AddPlayerForm = () => {
     
     setIsSubmitting(true);
     try {
-      await addPlayer(name.trim(), folderValue);
+      await addPlayer(name.trim(), folderValue, driveFolderName);
       setName('');
       setDriveFolder('');
       setDriveFolderName('');
