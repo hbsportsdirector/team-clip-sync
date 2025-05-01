@@ -1,3 +1,4 @@
+// src/main.tsx
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
@@ -7,7 +8,7 @@ import { CacheProvider } from '@emotion/react';
 import createCache from '@emotion/cache';
 import { MantineProvider } from '@mantine/core';
 import { ModalsProvider } from '@mantine/modals';
-import { Notifications } from '@mantine/notifications';
+import { Notifications } from '@mantine/notifications';  // ← default export
 
 const mantineCache = createCache({ key: 'mantine', prepend: true });
 

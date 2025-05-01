@@ -1,15 +1,21 @@
+// src/App.tsx
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+} from 'react-router-dom';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import LoginPage from './pages/LoginPage';
 import SignUpPage from './pages/SignUpPage';
 import DashboardPage from './pages/DashboardPage';
 import NotFoundPage from './pages/NotFoundPage';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
 
 function PrivateRoute({ children }: { children: JSX.Element }) {
-  const { user, isLoading } = useAuth();
+  const { session, isLoading } = useAuth();
   if (isLoading) return <div>Loading…</div>;
-  return user ? children : <Navigate to="/" replace />;
+  return session ? children : <Navigate to="/" replace />;
 }
 
 export default function App() {

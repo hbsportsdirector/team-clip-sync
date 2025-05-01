@@ -1,4 +1,3 @@
-// src/pages/DashboardPage.tsx
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -16,14 +15,12 @@ export default function DashboardPage() {
   const { user, isLoading, signOut } = useAuth();
   const navigate = useNavigate();
 
-  // redirect unauthenticated users
   useEffect(() => {
     if (!isLoading && !user) {
       navigate('/', { replace: true });
     }
   }, [isLoading, user, navigate]);
 
-  // show loader while we’re fetching auth state
   if (isLoading || !user) {
     return (
       <Center style={{ height: '100vh' }}>
@@ -55,9 +52,9 @@ export default function DashboardPage() {
           </Text>
           <Group direction="column" spacing="xs">
             <Text>• Add Player</Text>
-            <Text>• Record & Send</Text>
+            <Text>• Record &amp; Send</Text>
             <Text>• Upload Video</Text>
-            <Text>• Trim & Send</Text>
+            <Text>• Trim &amp; Send</Text>
           </Group>
         </AppShell.Navbar>
       }
@@ -66,7 +63,7 @@ export default function DashboardPage() {
         <Text size="xl" weight={500} mb="md">
           Welcome, {user.email}!
         </Text>
-        <Text color="dimmed">
+        <Text color="dimmed" mb="lg">
           Dashboard content goes here: camera, uploader, trimmer, player lists…
         </Text>
       </Container>
