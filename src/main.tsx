@@ -1,4 +1,3 @@
-// src/main.tsx
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
@@ -10,7 +9,6 @@ import { MantineProvider } from '@mantine/core';
 import { ModalsProvider } from '@mantine/modals';
 import { Notifications } from '@mantine/notifications';
 
-// Create and configure Emotion cache for Mantine
 const mantineCache = createCache({ key: 'mantine', prepend: true });
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
@@ -20,7 +18,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         emotionCache={mantineCache}
         withNormalizeCSS
         withGlobalStyles
-        theme={{ colorScheme: 'light', primaryColor: 'blue' }}
+        theme={{ colorScheme: 'light' }}
       >
         <Notifications position="top-right" />
         <ModalsProvider>

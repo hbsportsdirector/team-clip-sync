@@ -1,112 +1,72 @@
-// src/contexts/AuthContext.tsx
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { SupabaseClient, Session, User } from '@supabase/supabase-js';
-import { createClient } from '@supabase/supabase-js';
-
-// 🚨 Make sure these env vars are in place:
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
-
-if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-  throw new Error('Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY');
-}
-
-const supabase: SupabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { supabase } from '../lib/supabaseClient'; // your supabase client instance
+import type { Session, User } from '@supabase/supabase-js';
 
 interface AuthContextType {
   user: User | null;
+  session: Session | null;
   isLoading: boolean;
-  authError: Error | null;
-  signInWithGoogle: () => Promise<void>;
-  signUpWithGoogle: () => Promise<void>;
-  signInWithEmail: (email: string, password: string) => Promise<void>;
-  signUpWithEmail: (email: string, password: string) => Promise<void>;
+  signIn: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
-// Default values for the context
-const defaultAuthContext: AuthContextType = {
-  user: null,
-  isLoading: true,
-  authError: null,
-  signInWithGoogle: async () => {},
-  signUpWithGoogle: async () => {},
-  signInWithEmail: async () => {},
-  signUpWithEmail: async () => {},
-  signOut: async () => {},
-};
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const AuthContext = createContext<AuthContextType>(defaultAuthContext);
-
-export function AuthProvider({ children }: { children: ReactNode }) {
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [authError, setAuthError] = useState<Error | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
+  // Initialize session & subscribe to changes
   useEffect(() => {
-    // Listen for auth state changes
-    const { data: listener } = supabase.auth.onAuthStateChange(
-      (_event, session: Session | null) => {
-        setUser(session?.user ?? null);
-        setIsLoading(false);
-      }
-    );
+    // get initial session
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      setUser(data.session?.user ?? null);
+      setIsLoading(false);
+    });
 
-    // Clean up on unmount
+    // listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+    });
+
     return () => {
-      listener.subscription.unsubscribe();
+      subscription.unsubscribe();
     };
   }, []);
 
-  const signInWithGoogle = async () => {
-    setIsLoading(true);
-    const { error } = await supabase.auth.signInWithOAuth({ provider: 'google' });
-    setAuthError(error ?? null);
-    setIsLoading(false);
-  };
-
-  const signUpWithGoogle = signInWithGoogle;
-
-  const signInWithEmail = async (email: string, password: string) => {
+  const signIn = async (email: string, password: string) => {
     setIsLoading(true);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setAuthError(error ?? null);
+    if (error) throw error;
     setIsLoading(false);
   };
 
-  const signUpWithEmail = async (email: string, password: string) => {
+  const signUp = async (email: string, password: string) => {
     setIsLoading(true);
     const { error } = await supabase.auth.signUp({ email, password });
-    setAuthError(error ?? null);
+    if (error) throw error;
     setIsLoading(false);
   };
 
   const signOut = async () => {
-    setIsLoading(true);
-    const { error } = await supabase.auth.signOut();
-    setAuthError(error ?? null);
+    await supabase.auth.signOut();
+    setSession(null);
     setUser(null);
-    setIsLoading(false);
   };
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        isLoading,
-        authError,
-        signInWithGoogle,
-        signUpWithGoogle,
-        signInWithEmail,
-        signUpWithEmail,
-        signOut,
-      }}
-    >
+    <AuthContext.Provider value={{ user, session, isLoading, signIn, signUp, signOut }}>
       {children}
     </AuthContext.Provider>
   );
 }
 
 export function useAuth() {
-  return useContext(AuthContext);
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth must be used inside AuthProvider');
+  return ctx;
 }

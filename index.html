@@ -1,23 +1,17 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-mantine-color-scheme="light">
   <head>
-    <!-- React Fast-Refresh (keep this) -->
-    <script type="module">
-      import { injectIntoGlobalHook } from '/@react-refresh';
-      injectIntoGlobalHook(window);
-      window.$RefreshReg$ = () => {};
-      window.$RefreshSig$ = () => (type) => type;
-    </script>
-    <!-- Vite HMR client (keep this) -->
-    <script type="module" src="/@vite/client"></script>
-
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>TeamClipSync</title>
   </head>
   <body>
+    <!-- this is where React will mount -->
     <div id="root"></div>
-    <!-- ← THIS LINE IS CRITICAL →  -->
+    <!-- Vite entry point -->
     <script type="module" src="/src/main.tsx"></script>
+    <!-- Mantine portals (for modals & notifications) -->
+    <div data-portal="true"></div>
+    <div data-portal="true"></div>
   </body>
 </html>

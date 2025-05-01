@@ -1,3 +1,4 @@
+// src/pages/LoginPage.tsx
 import React, { useState } from 'react';
 import {
   Box,
@@ -14,47 +15,32 @@ import {
   Alert,
 } from '@mantine/core';
 import { FcGoogle } from 'react-icons/fc';
+import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function LoginPage() {
-  console.log('🖌️ Mantine LoginPage rendering');
-// Stubbed auth for now
-function useAuth() {
-  return {
-    signInWithGoogle: () => alert('Google sign-in'),
-    signInWithEmail: async () => alert('Email sign-in'),
-    signUpWithEmail: async () => alert('Email sign-up'),
-    isLoading: false,
-    authError: '',
-  };
-}
-  const {
-    signInWithGoogle,
-    signInWithEmail,
-    signUpWithEmail,
-    isLoading,
-    authError,
-  } = useAuth();
-
+  const { signInWithGoogle, signInWithEmail, isLoading, authError, user } = useAuth();
   const [tab, setTab] = useState<'login' | 'signup'>('login');
   const [email, setEmail] = useState('');
-  const [pw, setPw] = useState('');
-  const [confirm, setConfirm] = useState('');
+  const [password, setPassword] = useState('');
 
-  const submit = async () => {
-    if (tab === 'login') {
-      await signInWithEmail(email, pw);
-    } else {
-      if (pw !== confirm) return alert('Passwords must match');
-      await signUpWithEmail(email, pw);
-    }
+  // If already logged in, redirect via <Navigate>
+  if (user) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  const handleSubmit = async () => {
+    await signInWithEmail(email, password);
   };
 
   return (
     <Box
-      sx={(t) => ({
+      sx={(theme) => ({
         minHeight: '100vh',
-        background: t.fn.linearGradient(180, '#000022', '#2978A0'),
+        background:
+          theme.colorScheme === 'dark'
+            ? theme.fn.linearGradient(180, '#000022', '#2978A0')
+            : theme.fn.linearGradient(180, '#FFFCF2', '#A28F9D'),
       })}
     >
       <Center style={{ height: '100vh' }}>
@@ -63,19 +49,20 @@ function useAuth() {
           p="xl"
           withBorder
           shadow="xl"
-          sx={{
+          sx={(theme) => ({
             width: 340,
             maxWidth: '100%',
-            background: 'rgba(20,20,30,0.7)',
+            background:
+              theme.colorScheme === 'dark'
+                ? 'rgba(20, 20, 30, 0.7)'
+                : 'rgba(255, 255, 255, 0.8)',
             backdropFilter: 'blur(8px)',
-          }}
+          })}
         >
           <Group position="center" mb="xs">
-            <Title order={2} color="white">
-              TeamClipSync
-            </Title>
+            <Title order={2}>TeamClipSync</Title>
           </Group>
-          <Text color="gray.4" align="center" mb="lg">
+          <Text color="dimmed" size="sm" align="center" mb="lg">
             Record videos and sync to Google Drive
           </Text>
 
@@ -84,7 +71,11 @@ function useAuth() {
             <Tabs.Tab value="signup">Sign Up</Tabs.Tab>
           </Tabs>
 
-          {authError && <Alert color="red">{authError}</Alert>}
+          {authError && (
+            <Alert color="red" mb="sm">
+              {authError.message ?? 'Authentication error'}
+            </Alert>
+          )}
 
           <TextInput
             label="Email"
@@ -97,41 +88,39 @@ function useAuth() {
           <PasswordInput
             label="Password"
             placeholder="Your password"
-            value={pw}
-            onChange={(e) => setPw(e.currentTarget.value)}
+            value={password}
+            onChange={(e) => setPassword(e.currentTarget.value)}
             mb="sm"
             required
           />
-          {tab === 'signup' && (
-            <PasswordInput
-              label="Confirm Password"
-              placeholder="Repeat password"
-              value={confirm}
-              onChange={(e) => setConfirm(e.currentTarget.value)}
-              mb="sm"
-              required
-            />
-          )}
 
-          <Button fullWidth mt="md" onClick={submit} loading={isLoading}>
-            {tab === 'login' ? 'Login' : 'Create Account'}
+          <Button fullWidth mt="md" onClick={handleSubmit} loading={isLoading}>
+            {tab === 'login' ? 'Login' : 'Sign Up'}
           </Button>
-
-          <Divider label="Or continue with" labelPosition="center" my="lg" />
 
           <Button
             fullWidth
+            mt="xs"
             variant="outline"
             leftSection={<FcGoogle size={20} />}
             onClick={signInWithGoogle}
             loading={isLoading}
           >
-            Sign in with Google
+            Continue with Google
           </Button>
 
-          <Text size="xs" color="gray.4" align="center" mt="sm">
-            Signing in with Google will request permission to access your Drive
-            folders for easy folder selection when adding players.
+          <Divider label="Or" labelPosition="center" my="lg" />
+
+          <Text size="xs" align="center">
+            {tab === 'login' ? (
+              <>
+                Don’t have an account? <Link to="/signup">Sign up</Link>
+              </>
+            ) : (
+              <>
+                Already have an account? <Link to="/">Log in</Link>
+              </>
+            )}
           </Text>
         </Paper>
       </Center>

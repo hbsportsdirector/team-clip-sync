@@ -1,16 +1,16 @@
-// src/pages/NotFoundPage.tsx
-
 import React from 'react';
+import { Center, Text, Button } from '@mantine/core';
 import { Link } from 'react-router-dom';
 
 export default function NotFoundPage() {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-white">
-      <h1 className="text-6xl font-extrabold mb-4">404</h1>
-      <p className="text-xl mb-6">Oops! The page you’re looking for doesn’t exist.</p>
-      <Link to="/" className="text-blue-600 hover:underline">
-        Go back home
-      </Link>
-    </div>
+    <Center style={{ height: '100vh', flexDirection: 'column' }}>
+      <Text size="xl" mb="md">
+        404 – Page Not Found
+      </Text>
+      <Button component={Link} to="/" variant="outline">
+        Go to Login
+      </Button>
+    </Center>
   );
 }
