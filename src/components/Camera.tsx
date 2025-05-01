@@ -1,207 +1,136 @@
+// src/components/Camera.tsx
+
 import React, { useRef, useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
+import { Button } from './ui/button';
 import { Play, StopCircle } from 'lucide-react';
-import { usePlayers } from '@/contexts/PlayerContext';
-import { simulateUploadToMultipleFolders } from '@/services/driveService';
-import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
-import { useAuth } from '@/contexts/AuthContext';
+import { usePlayers } from '../contexts/PlayerContext';
+import { uploadClip } from '../utils/api';
+import { notifications } from '@mantine/notifications';
 
-const Camera = () => {
-  const [isRecording, setIsRecording] = useState(false);
-  const [stream, setStream] = useState<MediaStream | null>(null);
-  const [recordedChunks, setRecordedChunks] = useState<Blob[]>([]);
-  const [recordingTime, setRecordingTime] = useState(0);
-  const [uploading, setUploading] = useState(false);
+export default function Camera() {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const timerRef = useRef<number | null>(null);
-  const { selectedPlayers } = usePlayers();
-  const { isAuthenticated } = useAuth();
+  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
+  const [recording, setRecording] = useState(false);
+  const [selectedPlayerId, setSelectedPlayerId] = useState<string>('');
+  const { players } = usePlayers();
 
-  // Initialize camera
+  const [checking, setChecking] = useState(true);
+  const [cameraAvailable, setCameraAvailable] = useState(false);
+
   useEffect(() => {
-    const initializeCamera = async () => {
-      try {
-        const mediaStream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment' },
-          audio: true,
-        });
-        
-        setStream(mediaStream);
-        
-        if (videoRef.current) {
-          videoRef.current.srcObject = mediaStream;
-        }
-      } catch (error) {
-        console.error('Error accessing camera:', error);
-        toast.error('Could not access camera');
-      }
-    };
+    let streamRef: MediaStream | null = null;
 
-    if (isAuthenticated) {
-      initializeCamera();
+    async function setupCamera() {
+      try {
+        // 1) Request camera access directly
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: false,
+        });
+        streamRef = stream;
+
+        // 2) Hook up preview
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+
+        // 3) Prepare recorder
+        const mr = new MediaRecorder(stream);
+        mr.ondataavailable = async (event: BlobEvent) => {
+          const blob = new Blob([event.data], { type: 'video/mp4' });
+          if (!selectedPlayerId) {
+            notifications.show({ title: 'Error', message: 'Select a player first.', color: 'red' });
+            return;
+          }
+          const player = players.find((p) => p.id === selectedPlayerId);
+          if (!player) {
+            notifications.show({ title: 'Error', message: 'Player not found.', color: 'red' });
+            return;
+          }
+
+          const notifId = notifications.show({ title: 'Uploading…', message: 'Sending clip', loading: true });
+          try {
+            const file = new File([blob], `clip_${Date.now()}.mp4`, { type: 'video/mp4' });
+            const fileId = await uploadClip(file, player.driveFolder);
+            notifications.update({ id: notifId, title: 'Success', message: `Sent! ${fileId}`, color: 'green', loading: false });
+          } catch (err: any) {
+            notifications.update({ id: notifId, title: 'Upload failed', message: err.message||'Error', color: 'red', loading: false });
+          }
+        };
+        setMediaRecorder(mr);
+        setCameraAvailable(true);
+      } catch (err) {
+        console.error('Camera setup error:', err);
+        setCameraAvailable(false);
+      } finally {
+        setChecking(false);
+      }
     }
+
+    setupCamera();
 
     return () => {
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-      }
-      
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
+      // cleanup: stop camera tracks
+      if (streamRef) {
+        streamRef.getTracks().forEach((t) => t.stop());
       }
     };
-  }, [isAuthenticated]);
+  }, [players, selectedPlayerId]);
+
+  if (checking) {
+    return <div className="text-gray-500">Checking camera…</div>;
+  }
+
+  if (!cameraAvailable) {
+    return (
+      <div className="p-4 bg-yellow-50 border border-yellow-200 rounded">
+        <p className="text-yellow-800 font-medium">
+          ⚠️ No camera detected or permission denied.
+        </p>
+      </div>
+    );
+  }
 
   const startRecording = () => {
-    if (!stream) return;
-    
-    if (selectedPlayers.length === 0) {
-      toast.error('Select at least one player first');
-      return;
-    }
-
-    setRecordedChunks([]);
-    setRecordingTime(0);
-    
-    const mediaRecorder = new MediaRecorder(stream);
-    
-    mediaRecorderRef.current = mediaRecorder;
-    
-    mediaRecorder.ondataavailable = (event) => {
-      if (event.data.size > 0) {
-        setRecordedChunks(prev => [...prev, event.data]);
-      }
-    };
-    
-    mediaRecorder.start(1000);
-    setIsRecording(true);
-    
-    // Start timer
-    timerRef.current = window.setInterval(() => {
-      setRecordingTime(time => time + 1);
-    }, 1000);
+    if (!mediaRecorder) return;
+    mediaRecorder.start();
+    setRecording(true);
   };
-
   const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
-      
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
-    }
+    if (!mediaRecorder) return;
+    mediaRecorder.stop();
+    setRecording(false);
   };
-
-  const formatTime = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  useEffect(() => {
-    if (recordedChunks.length > 0 && !isRecording) {
-      const handleRecordingComplete = async () => {
-        const videoBlob = new Blob(recordedChunks, { type: 'video/webm' });
-        
-        try {
-          setUploading(true);
-          
-          const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-          const fileName = `recording_${timestamp}.webm`;
-          
-          // Upload to Supabase and Google Drive
-          await simulateUploadToMultipleFolders(
-            videoBlob,
-            selectedPlayers.map(player => ({
-              id: player.id,
-              name: player.name,
-              driveFolder: player.driveFolder
-            })),
-            fileName,
-            'recording' // Added this fourth argument: fileType
-          );
-          
-          // Create a download link for testing
-          const url = URL.createObjectURL(videoBlob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = fileName;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          
-        } catch (error) {
-          console.error('Failed to upload video:', error);
-          toast.error('Failed to upload video');
-        } finally {
-          setUploading(false);
-          setRecordedChunks([]);
-        }
-      };
-      
-      handleRecordingComplete();
-    }
-  }, [recordedChunks, isRecording, selectedPlayers]);
 
   return (
-    <div className="w-full flex flex-col items-center">
-      <div className="relative w-full max-w-md aspect-[9/16] bg-black rounded-lg overflow-hidden mb-4">
-        <video 
-          ref={videoRef} 
-          className="w-full h-full object-cover" 
-          autoPlay 
-          playsInline 
-          muted
-        />
-        
-        {isRecording && (
-          <div className="absolute top-4 right-4 bg-red-500 text-white px-2 py-1 rounded-lg flex items-center">
-            <div className="w-3 h-3 rounded-full bg-white mr-2 animate-pulse" />
-            {formatTime(recordingTime)}
-          </div>
-        )}
-      </div>
-      
-      <div className="flex flex-col items-center w-full max-w-md">
-        {!isRecording ? (
-          <Button 
-            onClick={startRecording} 
-            className="bg-team-primary hover:bg-team-primary/90 text-white rounded-full w-16 h-16 flex items-center justify-center"
-            disabled={uploading || selectedPlayers.length === 0}
-          >
-            <Play size={32} />
-          </Button>
-        ) : (
-          <Button 
-            onClick={stopRecording} 
-            className="bg-red-500 hover:bg-red-600 text-white rounded-full w-16 h-16 flex items-center justify-center"
-          >
-            <StopCircle size={32} />
-          </Button>
-        )}
-        
-        <div className={cn(
-          "mt-4 text-sm text-center",
-          selectedPlayers.length === 0 ? "text-red-500" : "text-foreground"
-        )}>
-          {selectedPlayers.length === 0 
-            ? "Select players before recording" 
-            : `Recording will be saved to ${selectedPlayers.length} player folder${selectedPlayers.length > 1 ? 's' : ''}`
-          }
-        </div>
-        
-        {uploading && (
-          <div className="mt-4 text-team-primary">
-            Uploading video...
-          </div>
-        )}
+    <div className="space-y-4">
+      <h2 className="text-lg font-semibold">Record & Send Video</h2>
+
+      <select
+        value={selectedPlayerId}
+        onChange={(e) => setSelectedPlayerId(e.target.value)}
+        className="w-full px-3 py-2 border rounded"
+      >
+        <option value="">— Select Player —</option>
+        {players.map((p) => (
+          <option key={p.id} value={p.id}>
+            {p.name}
+          </option>
+        ))}
+      </select>
+
+      <video ref={videoRef} autoPlay muted className="w-full max-h-64 rounded bg-black" />
+
+      <div className="flex justify-center space-x-4">
+        <Button onClick={startRecording} disabled={recording} className="flex items-center space-x-2">
+          <Play />
+          <span>Record</span>
+        </Button>
+        <Button onClick={stopRecording} disabled={!recording} className="flex items-center space-x-2">
+          <StopCircle />
+          <span>Stop</span>
+        </Button>
       </div>
     </div>
   );
-};
-
-export default Camera;
+}

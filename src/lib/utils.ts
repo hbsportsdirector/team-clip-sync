@@ -1,6 +1,13 @@
-import { clsx, type ClassValue } from "clsx"
-import { twMerge } from "tailwind-merge"
+// src/lib/utils.ts
 
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs))
+/**
+ * Conditionally join class names together.
+ *
+ * Usage:
+ *   cn('p-4', isActive && 'bg-blue-500', extraClass)
+ */
+export function cn(
+  ...classes: (string | false | null | undefined)[]
+): string {
+  return classes.filter(Boolean).join(' ');
 }

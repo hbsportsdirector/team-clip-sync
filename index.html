@@ -1,34 +1,23 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
+    <!-- React Fast-Refresh (keep this) -->
+    <script type="module">
+      import { injectIntoGlobalHook } from '/@react-refresh';
+      injectIntoGlobalHook(window);
+      window.$RefreshReg$ = () => {};
+      window.$RefreshSig$ = () => (type) => type;
+    </script>
+    <!-- Vite HMR client (keep this) -->
+    <script type="module" src="/@vite/client"></script>
+
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>TeamClipSync</title>
-    <meta name="description" content="Record videos and sync them to Google Drive for your team" />
-    <meta name="author" content="TeamClipSync" />
-
-    <link rel="icon" href="/lovable-uploads/87441f10-e704-4b67-bc41-27818ecb3dfe.png" type="image/png">
-    <link rel="apple-touch-icon" href="/lovable-uploads/87441f10-e704-4b67-bc41-27818ecb3dfe.png">
-
-    <meta property="og:title" content="TeamClipSync" />
-    <meta property="og:description" content="Record videos and sync them to Google Drive for your team" />
-    <meta property="og:type" content="website" />
-    <meta property="og:image" content="/lovable-uploads/87441f10-e704-4b67-bc41-27818ecb3dfe.png" />
-
-    <meta name="theme-color" content="#33C3F0" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:site" content="@lovable_dev" />
-    <meta name="twitter:image" content="/lovable-uploads/87441f10-e704-4b67-bc41-27818ecb3dfe.png" />
   </head>
-
   <body>
     <div id="root"></div>
-    <!-- IMPORTANT: DO NOT REMOVE THIS SCRIPT TAG OR THIS VERY COMMENT! -->
-    <script src="https://cdn.gpteng.co/gptengineer.js" type="module"></script>
+    <!-- ← THIS LINE IS CRITICAL →  -->
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
